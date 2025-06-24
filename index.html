@@ -341,9 +341,11 @@
           <option value="pm10">PM10</option>
         </select>
         <select id="chart-period">
+          <option value="1h">Last 1 Hour</option>
           <option value="24h">Last 24 Hours</option>
           <option value="7d">Last 7 Days</option>
           <option value="30d">Last 30 Days</option>
+          <option value="1y">Last 1 Year</option>
         </select>
         <button onclick="updateChart()" class="control-btn on">Update Chart</button>
       </div>
@@ -718,125 +720,256 @@
       }
     }
 
-    async function fetchChartData(room, metric, period) {
-      try {
-        let hours = 24;
-        if (period === '7d') hours = 168;
-        if (period === '30d') hours = 720;
+async function fetchChartData(room, metric, period) {
+  try {
+    // Choose table based on time period
+    let table = 'sensor_data';
+    if (period === '24h') table = 'avg_10min';
+    else if (period === '7d') table = 'avg_1hr';
+    else if (period === '30d') table = 'avg_4hr';
+    else if (period === '1y') table = 'avg_1day';
 
-        const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    // Calculate start timestamp
+    let hours = 1;
+    if (period === '24h') hours = 24;
+    else if (period === '7d') hours = 168;
+    else if (period === '30d') hours = 720;
+    else if (period === '1y') hours = 8760;
 
-        let query = supabase
-          .from('sensor_data')
-          .select('*')
-          .gte('timestamp', since)
-          .order('timestamp', { ascending: true });
+    const since = new Date(Date.now() - hours * 3600000).toISOString();
 
-        const { data, error } = await query;
-        if (error) throw error;
+    // Query Supabase
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .gte('timestamp', since)
+      .order('timestamp', { ascending: true });
 
-        // Filter data based on room selection
-        let filteredData = data;
-        if (room !== 'all') {
-          filteredData = data.filter(d => d.sensor_id.includes(`_${room}`));
-        }
+    console.log(`Fetched ${data.length} rows from ${table} for period ${period}`);
+    console.log("Sample data:", data[0]);
 
-        // Group data for chart
-        const chartData = processChartData(filteredData, metric);
-        updateChartDisplay(chartData, metric);
-      } catch (error) {
-        console.error("Chart data fetch error:", error);
-      }
+    if (error) throw error;
+
+    // Filter by room
+    const filteredData = room === 'all'
+      ? data
+      : data.filter(d => d.sensor_id.includes(`_${room}`));
+
+    const chartData = processChartData(filteredData, metric, period);
+    updateChartDisplay(chartData, metric, period);
+  } catch (error) {
+    console.error("Chart data fetch error:", error);
+  }
+}
+
+function processChartData(data, metric, period) {
+  const processed = {};
+  const isAggregated = period !== '1h';
+
+  data.forEach(row => {
+    const ts = new Date(row.timestamp);
+    let time;
+
+    if (period === '1h' || period === '24h') {
+      time = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (period === '7d') {
+      const date = ts.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+      const clock = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      time = `${date} ${clock}`;
+    } else {
+      time = ts.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
     }
 
-    function processChartData(data, metric) {
-      const processed = {};
-      
-      data.forEach(row => {
-        const time = new Date(row.timestamp).toLocaleTimeString();
-        if (!processed[time]) processed[time] = {};
-        
-        let value;
+    if (!processed[time]) processed[time] = {};
+
+    const sensor = row.sensor_id;
+    if (!processed[time][sensor]) processed[time][sensor] = {};
+
+    if (isAggregated) {
+      processed[time][sensor] = {
+        t1_avg: row.t1_avg,
+        t1_min: row.t1_min,
+        t1_max: row.t1_max,
+        t2_avg: row.t2_avg,
+        t2_min: row.t2_min,
+        t2_max: row.t2_max,
+        rh_avg: row.rh_avg,
+        rh_min: row.rh_min,
+        rh_max: row.rh_max,
+        pm25_avg: row.pm25_avg,
+        pm25_min: row.pm25_min,
+        pm25_max: row.pm25_max,
+        pm10_avg: row.pm10_avg,
+        pm10_min: row.pm10_min,
+        pm10_max: row.pm10_max
+      };
+    } else {
+      // Wrap raw values into expected avg/min/max keys
+      processed[time][sensor] = {
+        t1_avg: row.t1,
+        t1_min: row.t1,
+        t1_max: row.t1,
+        t2_avg: row.t2,
+        t2_min: row.t2,
+        t2_max: row.t2,
+        rh_avg: row.rh,
+        rh_min: row.rh,
+        rh_max: row.rh,
+        pm25_avg: row.pm25,
+        pm25_min: row.pm25,
+        pm25_max: row.pm25,
+        pm10_avg: row.pm10,
+        pm10_min: row.pm10,
+        pm10_max: row.pm10
+      };
+    }
+  });
+
+  return processed;
+}
+
+function updateChartDisplay(data, metric, period) {
+  const ctx = document.getElementById('dataChart').getContext('2d');
+  if (chart) chart.destroy();
+
+  const labels = Object.keys(data);
+  const datasets = [];
+  const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+  let colorIndex = 0;
+  const sensors = new Set();
+
+  Object.values(data).forEach(timeData => {
+    Object.keys(timeData).forEach(sensor => sensors.add(sensor));
+  });
+
+  const useMinMax = period !== '1h'; // Only for aggregated data
+
+  sensors.forEach(sensor => {
+    const color = colors[colorIndex % colors.length];
+
+    const avgData = [];
+    const minData = [];
+    const maxData = [];
+
+    labels.forEach(time => {
+      const row = data[time][sensor];
+      if (!row) {
+        avgData.push(null);
+        if (useMinMax) {
+          minData.push(null);
+          maxData.push(null);
+        }
+        return;
+      }
+
+      if (useMinMax) {
         switch (metric) {
           case 'temperature':
-            value = row.t1 || row.t2;
+            avgData.push(row.t1_avg ?? row.t2_avg);
+            minData.push(row.t1_min ?? row.t2_min);
+            maxData.push(row.t1_max ?? row.t2_max);
             break;
           case 'humidity':
-            value = row.rh;
+            avgData.push(row.rh_avg);
+            minData.push(row.rh_min);
+            maxData.push(row.rh_max);
             break;
           case 'pm25':
-            value = row.pm25;
+            avgData.push(row.pm25_avg);
+            minData.push(row.pm25_min);
+            maxData.push(row.pm25_max);
             break;
           case 'pm10':
-            value = row.pm10;
+            avgData.push(row.pm10_avg);
+            minData.push(row.pm10_min);
+            maxData.push(row.pm10_max);
             break;
         }
-        
-        if (value !== null && value !== undefined) {
-          processed[time][row.sensor_id] = value;
+      } else {
+        // Raw data for 1h
+        switch (metric) {
+          case 'temperature':
+            avgData.push(row.t1_avg ?? row.t2_avg);
+            break;
+          case 'humidity':
+            avgData.push(row.rh_avg);
+            break;
+          case 'pm25':
+            avgData.push(row.pm25_avg);
+            break;
+          case 'pm10':
+            avgData.push(row.pm10_avg);
+            break;
         }
+      }
+    });
+
+    // Main average line
+    datasets.push({
+      label: `${sensor.toUpperCase()} (avg)`,
+      data: avgData,
+      borderColor: color,
+      backgroundColor: color + '20',
+      fill: false,
+      tension: 0.3
+    });
+
+    // Optional: min/max band
+    if (useMinMax) {
+      datasets.push({
+        label: `${sensor.toUpperCase()} (min)`,
+        data: minData,
+        borderColor: 'transparent',
+        backgroundColor: color + '10',
+        pointRadius: 0,
+        fill: '+1'
       });
 
-      return processed;
+      datasets.push({
+        label: `${sensor.toUpperCase()} (max)`,
+        data: maxData,
+        borderColor: 'transparent',
+        backgroundColor: color + '10',
+        pointRadius: 0,
+        fill: false
+      });
     }
 
-    function updateChartDisplay(data, metric) {
-      const ctx = document.getElementById('dataChart').getContext('2d');
-      
-      if (chart) {
-        chart.destroy();
-      }
+    colorIndex++;
+  });
 
-      const labels = Object.keys(data);
-      const datasets = [];
-      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-      let colorIndex = 0;
-
-      // Create dataset for each sensor
-      const sensors = new Set();
-      Object.values(data).forEach(timeData => {
-        Object.keys(timeData).forEach(sensor => sensors.add(sensor));
-      });
-
-      sensors.forEach(sensor => {
-        const sensorData = labels.map(time => data[time][sensor] || null);
-        datasets.push({
-          label: sensor.toUpperCase(),
-          data: sensorData,
-          borderColor: colors[colorIndex % colors.length],
-          backgroundColor: colors[colorIndex % colors.length] + '20',
-          fill: false,
-          tension: 0.4
-        });
-        colorIndex++;
-      });
-
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: datasets
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: `${metric.toUpperCase()} Trends - ${period}`
         },
-        options: {
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: `${metric.toUpperCase()} Trends`
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: metric.includes('pm'),
-              title: {
-                display: true,
-                text: getUnitForMetric(metric)
-              }
-            }
+        legend: {
+          display: true,
+          labels: {
+            filter: item => !item.text.includes('(min)') && !item.text.includes('(max)')
           }
         }
-      });
+      },
+      scales: {
+        y: {
+          beginAtZero: metric.includes('pm'),
+          title: {
+            display: true,
+            text: getUnitForMetric(metric)
+          }
+        }
+      }
     }
+  });
+}
 
     function getUnitForMetric(metric) {
       switch (metric) {
