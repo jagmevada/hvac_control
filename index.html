@@ -501,12 +501,16 @@
         }
       }
 
-      // Group by rooms
+      // Group by rooms and sort sensors by their IDs
       const rooms = { r1: {}, r2: {} };
       Object.entries(latestBySensor).forEach(([sensorId, data]) => {
         const room = sensorId.includes('_r1') ? 'r1' : 'r2';
         rooms[room][sensorId] = data;
       });
+
+      // Sort the sensor IDs in each room
+      Object.keys(rooms.r1).sort();
+      Object.keys(rooms.r2).sort();
 
       // Display each room
       Object.entries(rooms).forEach(([roomId, sensors]) => {
@@ -519,8 +523,9 @@
         const cardsGrid = document.createElement('div');
         cardsGrid.className = 'cards-grid';
 
-        Object.entries(sensors).forEach(([sensorId, d]) => {
-          const card = createSensorCard(sensorId, d);
+        // Create cards in sorted order
+        Object.keys(sensors).sort().forEach(sensorId => {
+          const card = createSensorCard(sensorId, sensors[sensorId]);
           cardsGrid.appendChild(card);
         });
 
