@@ -853,6 +853,10 @@ function updateChartDisplay(data, metric, period) {
 
   const useMinMax = period !== '1h';
 
+  const plottedPM = new Set();
+  const plottedNC = new Set();
+  const plottedAVG = new Set();
+
   sensors.forEach(sensor => {
     const labelSuffix = sensor.toUpperCase().endsWith('_R1') ? '_R1' : '_R2';
     const color = colors[colorIndex % colors.length];
@@ -860,18 +864,8 @@ function updateChartDisplay(data, metric, period) {
     if (metric === 'ac_temp' && (sensor.startsWith('ac1_') || sensor.startsWith('ac2_'))) {
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-      datasets.push({ label: `${sensor.startsWith('ac1_') ? 'AC1 Vent' : 'AC2 Vent'}${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `${sensor.startsWith('ac1_') ? 'AC1 Motor' : 'AC2 Motor'}${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
-
-      if (useMinMax) {
-        ['t1', 't2'].forEach((key, i) => {
-          const minData = labels.map(time => data[time][sensor]?.[`${key}_min`] ?? null);
-          const maxData = labels.map(time => data[time][sensor]?.[`${key}_max`] ?? null);
-          datasets.push({ label: `${key.toUpperCase()} MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: colors[(colorIndex + i) % colors.length] + '10', pointRadius: 0, fill: '+1' });
-          datasets.push({ label: `${key.toUpperCase()} MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: colors[(colorIndex + i) % colors.length] + '10', pointRadius: 0, fill: false });
-        });
-      }
-
+      datasets.push({ label: `Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
       colorIndex++;
       return;
     }
@@ -883,80 +877,37 @@ function updateChartDisplay(data, metric, period) {
       datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
       datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
       datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', fill: false, tension: 0.3 });
-
-      if (useMinMax) {
-        ['t1', 't2', 'rh'].forEach((key, i) => {
-          const minData = labels.map(time => data[time][sensor]?.[`${key}_min`] ?? null);
-          const maxData = labels.map(time => data[time][sensor]?.[`${key}_max`] ?? null);
-          datasets.push({ label: `${key.toUpperCase()} MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: colors[(colorIndex + i) % colors.length] + '10', pointRadius: 0, fill: '+1' });
-          datasets.push({ label: `${key.toUpperCase()} MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: colors[(colorIndex + i) % colors.length] + '10', pointRadius: 0, fill: false });
-        });
-      }
-
       colorIndex++;
       return;
     }
 
-    if (metric === 'pm') {
+    if (metric === 'pm' && sensor.startsWith('ecs_') && !plottedPM.has(sensor)) {
       ['pm1', 'pm25', 'pm10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        const dataPoints = labels.map(t => data[t][sensor]?.[key] ?? null);
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: dataPoints, borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
-
-        if (useMinMax) {
-          const minData = labels.map(t => data[t][sensor]?.[`${key}_min`] ?? null);
-          const maxData = labels.map(t => data[t][sensor]?.[`${key}_max`] ?? null);
-          datasets.push({ label: `${key.toUpperCase()} MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: colorX + '10', pointRadius: 0, fill: '+1' });
-          datasets.push({ label: `${key.toUpperCase()} MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: colorX + '10', pointRadius: 0, fill: false });
-        }
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
+      plottedPM.add(sensor);
       colorIndex++;
       return;
     }
 
-    if (metric === 'nc') {
+    if (metric === 'nc' && sensor.startsWith('ecs_') && !plottedNC.has(sensor)) {
       ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        const avgData = labels.map(t => data[t][sensor]?.[key] ?? null);
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: avgData, borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
-
-        if (useMinMax) {
-          const minData = labels.map(t => data[t][sensor]?.[`${key}_min`] ?? null);
-          const maxData = labels.map(t => data[t][sensor]?.[`${key}_max`] ?? null);
-          datasets.push({ label: `${key.toUpperCase()} MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: colorX + '10', pointRadius: 0, fill: '+1' });
-          datasets.push({ label: `${key.toUpperCase()} MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: colorX + '10', pointRadius: 0, fill: false });
-        }
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
+      plottedNC.add(sensor);
       colorIndex++;
       return;
     }
 
-    if (metric === 'avg_particle_size') {
+    if (metric === 'avg_particle_size' && sensor.startsWith('ecs_') && !plottedAVG.has(sensor)) {
       const avg = labels.map(t => data[t][sensor]?.avg_particle_size ?? null);
       datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-
-      if (useMinMax) {
-        const minData = labels.map(t => data[t][sensor]?.avg_particle_size_min ?? null);
-        const maxData = labels.map(t => data[t][sensor]?.avg_particle_size_max ?? null);
-        datasets.push({ label: `Avg Particle Size MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: color + '10', pointRadius: 0, fill: '+1' });
-        datasets.push({ label: `Avg Particle Size MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: color + '10', pointRadius: 0, fill: false });
-      }
-
+      plottedAVG.add(sensor);
       colorIndex++;
       return;
     }
-
-    const avgData = labels.map(t => data[t][sensor]?.[metric] ?? null);
-    datasets.push({ label: `${metric.toUpperCase()}${labelSuffix}`, data: avgData, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-
-    if (useMinMax) {
-      const minData = labels.map(t => data[t][sensor]?.[`${metric}_min`] ?? null);
-      const maxData = labels.map(t => data[t][sensor]?.[`${metric}_max`] ?? null);
-      datasets.push({ label: `${metric.toUpperCase()} MIN${labelSuffix}`, data: minData, borderColor: 'transparent', backgroundColor: color + '10', pointRadius: 0, fill: '+1' });
-      datasets.push({ label: `${metric.toUpperCase()} MAX${labelSuffix}`, data: maxData, borderColor: 'transparent', backgroundColor: color + '10', pointRadius: 0, fill: false });
-    }
-
-    colorIndex++;
   });
 
   chart = new Chart(ctx, {
@@ -988,7 +939,8 @@ function updateChartDisplay(data, metric, period) {
     }
   });
 }
-    function getUnitForMetric(metric) {
+
+function getUnitForMetric(metric) {
       switch (metric) {
         case 'temperature': return 'Temperature (°C)';
         case 'humidity': return 'Humidity (%)';
