@@ -834,6 +834,8 @@ function processChartData(data, metric, period) {
 
 // Entire HTML/JS content here remains unchanged
 // We'll update only the updateChartDisplay() function below
+// Entire HTML/JS content here remains unchanged
+// We'll update only the updateChartDisplay() function and default chart dropdowns below
 
 function updateChartDisplay(data, metric, period) {
   const ctx = document.getElementById('dataChart').getContext('2d');
@@ -858,14 +860,15 @@ function updateChartDisplay(data, metric, period) {
 
   sensors.forEach(sensor => {
     const labelSuffix = sensor.toUpperCase().endsWith('_R1') ? '_R1' : '_R2';
+    const color = colors[colorIndex % colors.length];
 
     if (metric === 'ac_temp' && (sensor.startsWith('ac1_') || sensor.startsWith('ac2_'))) {
+      const acId = sensor.startsWith('ac1_') ? 'AC1' : 'AC2';
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-      const color1 = colors[colorIndex++ % colors.length];
-      const color2 = colors[colorIndex++ % colors.length];
-      datasets.push({ label: `Vent${labelSuffix}`, data: t1, borderColor: color1, backgroundColor: color1 + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `Motor${labelSuffix}`, data: t2, borderColor: color2, backgroundColor: color2 + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
+      colorIndex++;
       return;
     }
 
@@ -873,55 +876,35 @@ function updateChartDisplay(data, metric, period) {
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
       const rh = labels.map(time => data[time][sensor]?.rh ?? null);
-      const color1 = colors[colorIndex++ % colors.length];
-      const color2 = colors[colorIndex++ % colors.length];
-      const color3 = colors[colorIndex++ % colors.length];
-      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color1, backgroundColor: color1 + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: color2, backgroundColor: color2 + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: color3, backgroundColor: color3 + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', fill: false, tension: 0.3 });
+      colorIndex++;
       return;
     }
 
-    if (metric === 'pm' && sensor.startsWith('ecs_')) {
-      ['pm1', 'pm25', 'pm10'].forEach(key => {
-        const colorX = colors[colorIndex++ % colors.length];
-        datasets.push({
-          label: `${key.toUpperCase()}${labelSuffix}`,
-          data: labels.map(t => data[t][sensor]?.[key] ?? null),
-          borderColor: colorX,
-          backgroundColor: colorX + '20',
-          fill: false,
-          tension: 0.3
-        });
+    if (metric === 'pm') {
+      ['pm1', 'pm25', 'pm10'].forEach((key, i) => {
+        const colorX = colors[(colorIndex + i) % colors.length];
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
+      colorIndex++;
       return;
     }
 
-    if (metric === 'nc' && sensor.startsWith('ecs_')) {
-      ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach(key => {
-        const colorX = colors[colorIndex++ % colors.length];
-        datasets.push({
-          label: `${key.toUpperCase()}${labelSuffix}`,
-          data: labels.map(t => data[t][sensor]?.[key] ?? null),
-          borderColor: colorX,
-          backgroundColor: colorX + '20',
-          fill: false,
-          tension: 0.3
-        });
+    if (metric === 'nc') {
+      ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach((key, i) => {
+        const colorX = colors[(colorIndex + i) % colors.length];
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
+      colorIndex++;
       return;
     }
 
-    if (metric === 'avg_particle_size' && sensor.startsWith('ecs_')) {
-      const colorX = colors[colorIndex++ % colors.length];
-      datasets.push({
-        label: `Avg Particle Size${labelSuffix}`,
-        data: labels.map(t => data[t][sensor]?.avg_particle_size ?? null),
-        borderColor: colorX,
-        backgroundColor: colorX + '20',
-        fill: false,
-        tension: 0.3
-      });
+    if (metric === 'avg_particle_size') {
+      const avg = labels.map(t => data[t][sensor]?.avg_particle_size ?? null);
+      datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
+      colorIndex++;
       return;
     }
   });
@@ -956,6 +939,13 @@ function updateChartDisplay(data, metric, period) {
     }
   });
 }
+setTimeout(() => {
+  document.getElementById('chart-metric').value = 'room_temp_rh';
+  document.getElementById('chart-period').value = '24h';
+  updateChart();
+}, 2000);
+
+
 function getUnitForMetric(metric) {
       switch (metric) {
         case 'temperature': return 'Temperature (°C)';
