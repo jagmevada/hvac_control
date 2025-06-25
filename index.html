@@ -853,10 +853,6 @@ function updateChartDisplay(data, metric, period) {
 
   const useMinMax = period !== '1h';
 
-  const plottedPM = new Set();
-  const plottedNC = new Set();
-  const plottedAVG = new Set();
-
   sensors.forEach(sensor => {
     const labelSuffix = sensor.toUpperCase().endsWith('_R1') ? '_R1' : '_R2';
     const color = colors[colorIndex % colors.length];
@@ -881,30 +877,27 @@ function updateChartDisplay(data, metric, period) {
       return;
     }
 
-    if (metric === 'pm' && sensor.startsWith('ecs_') && !plottedPM.has(sensor)) {
+    if (metric === 'pm') {
       ['pm1', 'pm25', 'pm10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
         datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
-      plottedPM.add(sensor);
       colorIndex++;
       return;
     }
 
-    if (metric === 'nc' && sensor.startsWith('ecs_') && !plottedNC.has(sensor)) {
+    if (metric === 'nc') {
       ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
         datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
       });
-      plottedNC.add(sensor);
       colorIndex++;
       return;
     }
 
-    if (metric === 'avg_particle_size' && sensor.startsWith('ecs_') && !plottedAVG.has(sensor)) {
+    if (metric === 'avg_particle_size') {
       const avg = labels.map(t => data[t][sensor]?.avg_particle_size ?? null);
       datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-      plottedAVG.add(sensor);
       colorIndex++;
       return;
     }
@@ -924,7 +917,8 @@ function updateChartDisplay(data, metric, period) {
           text: `${metric.toUpperCase()} Trends - ${period}`
         },
         legend: {
-          display: true
+          display: true,
+          position: 'right'  // moved from default 'top' to 'right'
         }
       },
       scales: {
