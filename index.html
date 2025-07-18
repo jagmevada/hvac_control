@@ -13,23 +13,29 @@
       box-sizing: border-box;
     }
 
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
+body {
+  font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  background: #23272f;
+  min-height: 100vh;
+  padding: 20px;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #f4f6fa;
+}
 
     .header {
       text-align: center;
-      color: white;
+      color: #f4f6fa;
       margin-bottom: 30px;
     }
 
     .header h1 {
+      font-family: 'Montserrat', 'Inter', 'Segoe UI', Arial, sans-serif;
       font-size: 2.5rem;
       margin-bottom: 10px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.08);
+      letter-spacing: 0.03em;
     }
 
     .status-bar {
@@ -83,11 +89,13 @@
     }
 
     .room-title {
-      color: white;
-      font-size: 1.8rem;
+      color: #f4f6fa;
+      font-family: 'Montserrat', 'Inter', 'Segoe UI', Arial, sans-serif;
+      font-size: 1.7rem;
       margin-bottom: 20px;
       text-align: center;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.18);
+      letter-spacing: 0.02em;
     }
 
     .cards-grid {
@@ -98,14 +106,15 @@
     }
 
     .card {
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
+      background: #2d313a;
+      border-radius: 18px;
       padding: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.18);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: 1px solid rgba(255,255,255,0.3);
-      font-size: 0.9rem;
+      border: 1px solid #353945;
+      font-size: 0.97rem;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      color: #f4f6fa;
     }
 
     .card:hover {
@@ -114,13 +123,14 @@
     }
 
     .card-title {
-      font-size: 1.2rem;
-      font-weight: bold;
+      font-size: 1.15rem;
+      font-weight: 600;
       margin-bottom: 12px;
-      color: #333;
+      color: #f4f6fa;
       display: flex;
       align-items: center;
       gap: 8px;
+      font-family: 'Montserrat', 'Inter', 'Segoe UI', Arial, sans-serif;
     }
 
     .device-icon {
@@ -146,19 +156,20 @@
     .metric {
       text-align: center;
       padding: 10px;
-      background: rgba(0,0,0,0.05);
+      background: #23272f;
       border-radius: 8px;
+      color: #f4f6fa;
     }
 
     .metric-value {
       font-size: 1.1rem;
       font-weight: bold;
-      color: #2c3e50;
+      color: #f4f6fa;
     }
 
     .metric-label {
       font-size: 0.75rem;
-      color: #7f8c8d;
+      color: #b0b4bb;
       margin-top: 4px;
     }
 
@@ -196,12 +207,13 @@
     }
 
     .chart-container {
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(10px);
+      background: #2d313a;
       border-radius: 20px;
       padding: 25px;
       margin-bottom: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      border: 1px solid #353945;
+      color: #f4f6fa;
     }
 
     .chart-controls {
@@ -220,15 +232,17 @@
     }
 
     .chart-title {
-      font-size: 1.4rem;
-      font-weight: bold;
+      font-size: 1.25rem;
+      font-weight: 600;
       margin-bottom: 15px;
-      color: #333;
+      color: #f4f6fa;
+      font-family: 'Montserrat', 'Inter', 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.01em;
     }
 
     .timestamp {
       font-size: 0.8rem;
-      color: #95a5a6;
+      color: #b0b4bb;
       margin-top: 10px;
       text-align: center;
     }
@@ -912,8 +926,10 @@ function updateChartDisplay(data, metric, period) {
       const acId = sensor.split('_')[0].toUpperCase(); // "AC1" or "AC2"
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-      datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', ...commonOptions });
-      datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', ...commonOptions });
+      // Vent temperature (left axis)
+      datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', yAxisID: 'y', ...commonOptions });
+      // Motor temperature (right axis)
+      datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
       colorIndex++;
       return;
     }
@@ -922,9 +938,11 @@ function updateChartDisplay(data, metric, period) {
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
       const rh = labels.map(time => data[time][sensor]?.rh ?? null);
-      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', ...commonOptions });
-      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', ...commonOptions });
-      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', ...commonOptions });
+      // Temperature lines (left y-axis)
+      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', yAxisID: 'y', ...commonOptions });
+      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', yAxisID: 'y', ...commonOptions });
+      // Humidity line (right y-axis)
+      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
       colorIndex++;
       return;
     }
@@ -958,34 +976,206 @@ function updateChartDisplay(data, metric, period) {
     }
   });
 
+  // Helper to prettify period
+  function prettyPeriod(p) {
+    switch (p) {
+      case '1h': return 'Last 1 Hour';
+      case '24h': return 'Last 24 Hours';
+      case '7d': return 'Last 7 Days';
+      case '30d': return 'Last 30 Days';
+      case '1y': return 'Last 1 Year';
+      default: return p;
+    }
+  }
+
+  // Helper to prettify metric
+  function prettyMetric(m, room) {
+    switch (m) {
+      case 'ac_temp':
+        if (room === 'r1') return 'Room 1 AC Vent & Motor Temp (°C)';
+        if (room === 'r2') return 'Room 2 AC Vent & Motor Temp (°C)';
+        return 'AC Vent & Motor Temp (°C)';
+      case 'room_temp_rh':
+        if (room === 'r1') return 'Room 1 Temperature & Humidity (°C, %)';
+        if (room === 'r2') return 'Room 2 Temperature & Humidity (°C, %)';
+        return 'Room Temperature & Humidity (°C, %)';
+      case 'pm':
+        return 'Particulate Matter (PM1.0/2.5/10) (μg/m³)';
+      case 'nc':
+        return 'Particle Count (NC0.5/1.0/2.5/10) (/L)';
+      case 'avg_particle_size':
+        return 'Average Particle Size (μm)';
+      default:
+        return m;
+    }
+  }
+
+  const chartTitle = `${prettyMetric(metric, room)} — ${prettyPeriod(period)}`;
+
+  // Chart.js options with dual y-axes for temperature & humidity
+  let chartOptions = {
+    responsive: true,
+    plugins: {
+      title: {
+        display: true,
+        text: chartTitle,
+        color: '#fff',
+        font: {
+          size: 18,
+          weight: 'bold',
+          family: 'Montserrat, Inter, Segoe UI, Arial, sans-serif'
+        }
+      },
+      legend: {
+        display: true,
+        position: 'right'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: metric.includes('pm') || metric === 'nc',
+        title: {
+          display: true,
+          text: getUnitForMetric(metric),
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff'
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      },
+      x: {
+        title: {
+          display: false,
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff'
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      }
+    }
+  };
+
+  // If temperature & humidity, set dual y-axes
+  if (metric === 'room_temp_rh') {
+    chartOptions.scales = {
+      y: {
+        type: 'linear',
+        position: 'left',
+        min: 20,
+        max: 40,
+        title: {
+          display: true,
+          text: 'Temperature (°C)',
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff',
+          stepSize: 2
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      },
+      y1: {
+        type: 'linear',
+        position: 'right',
+        min: 20,
+        max: 80,
+        title: {
+          display: true,
+          text: 'Humidity (RH%)',
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff',
+          stepSize: 10
+        },
+        grid: {
+          drawOnChartArea: false
+        }
+      },
+      x: {
+        title: {
+          display: false,
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff'
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      }
+    };
+  }
+
+  // For AC vent and motor temperature, set dual y-axes with custom ranges
+  if (metric === 'ac_temp') {
+    chartOptions.scales = {
+      y: {
+        type: 'linear',
+        position: 'left',
+        min: 0,
+        max: 40,
+        title: {
+          display: true,
+          text: 'Vent Temperature (°C)',
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff',
+          stepSize: 5
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      },
+      y1: {
+        type: 'linear',
+        position: 'right',
+        min: 20,
+        max: 100,
+        title: {
+          display: true,
+          text: 'Motor Temperature (°C)',
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff',
+          stepSize: 10
+        },
+        grid: {
+          drawOnChartArea: false
+        }
+      },
+      x: {
+        title: {
+          display: false,
+          color: '#fff'
+        },
+        ticks: {
+          color: '#fff'
+        },
+        grid: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      }
+    };
+  }
+
   chart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets
     },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: `${metric.toUpperCase()} Trends - ${period}`
-        },
-        legend: {
-          display: true,
-          position: 'right'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: metric.includes('pm') || metric === 'nc',
-          title: {
-            display: true,
-            text: getUnitForMetric(metric)
-          }
-        }
-      }
-    }
+    options: chartOptions
   });
 }
 
