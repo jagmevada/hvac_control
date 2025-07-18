@@ -410,6 +410,29 @@
     }
 
     // Global functions
+    // Store last analytics settings
+    let lastAnalyticsSettings = {
+      room: 'all',
+      metric: 'room_temp_rh',
+      period: '24h'
+    };
+
+    // Save analytics settings on change
+    function saveAnalyticsSettings() {
+      lastAnalyticsSettings = {
+        room: document.getElementById('chart-room').value,
+        metric: document.getElementById('chart-metric').value,
+        period: document.getElementById('chart-period').value
+      };
+    }
+
+    // Restore analytics settings to selects
+    function restoreAnalyticsSettings() {
+      document.getElementById('chart-room').value = lastAnalyticsSettings.room;
+      document.getElementById('chart-metric').value = lastAnalyticsSettings.metric;
+      document.getElementById('chart-period').value = lastAnalyticsSettings.period;
+    }
+
     window.showTab = function(tabName) {
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
@@ -417,9 +440,14 @@
       document.querySelectorAll('.tab-button').forEach(button => {
         button.classList.remove('active');
       });
-      
       document.getElementById(tabName + '-tab').classList.add('active');
       event.target.classList.add('active');
+
+      // If switching to analytics, restore last settings and update chart
+      if (tabName === 'analytics') {
+        restoreAnalyticsSettings();
+        updateChart();
+      }
     };
 
     window.sendCommand = async function(sensor_id, target, state) {
@@ -449,7 +477,7 @@
       const room = document.getElementById('chart-room').value;
       const metric = document.getElementById('chart-metric').value;
       const period = document.getElementById('chart-period').value;
-      
+      saveAnalyticsSettings();
       fetchChartData(room, metric, period);
     };
 
@@ -758,6 +786,18 @@ async function fetchChartData(room, metric, period) {
 
     const chartData = processChartData(filteredData, metric, period);
     updateChartDisplay(chartData, metric, period);
+    // Show last update time for chart
+    let chartUpdateElem = document.getElementById('chart-last-update');
+    if (!chartUpdateElem) {
+      chartUpdateElem = document.createElement('div');
+      chartUpdateElem.id = 'chart-last-update';
+      chartUpdateElem.style.textAlign = 'center';
+      chartUpdateElem.style.color = '#888';
+      chartUpdateElem.style.fontSize = '0.95rem';
+      const chartContainer = document.querySelector('#analytics-tab .chart-container');
+      if (chartContainer) chartContainer.appendChild(chartUpdateElem);
+    }
+    chartUpdateElem.textContent = `Last Chart Update: ${new Date().toLocaleString()}`;
   } catch (error) {
     console.error("Chart data fetch error:", error);
   }
@@ -966,6 +1006,7 @@ function getUnitForMetric(metric) {
     
     // Initialize chart
     setTimeout(() => {
+      restoreAnalyticsSettings();
       updateChart();
     }, 2000);
   </script>
