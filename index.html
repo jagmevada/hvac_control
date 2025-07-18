@@ -865,23 +865,26 @@ function updateChartDisplay(data, metric, period) {
     const labelSuffix = sensor.toUpperCase().endsWith('_R1') ? '_R1' : '_R2';
     const color = colors[colorIndex % colors.length];
 
-  if (metric === 'ac_temp' && (sensor.startsWith('ac1_') || sensor.startsWith('ac2_'))) {
-  const acId = sensor.split('_')[0].toUpperCase(); // "AC1" or "AC2"
-  const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
-  const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-  datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-  datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
-  colorIndex++;
-  return;
-}
+    // Common dataset options for all lines: very small point markers
+    const commonOptions = { fill: false, tension: 0.3, pointRadius: 2 };
+
+    if (metric === 'ac_temp' && (sensor.startsWith('ac1_') || sensor.startsWith('ac2_'))) {
+      const acId = sensor.split('_')[0].toUpperCase(); // "AC1" or "AC2"
+      const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
+      const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
+      datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', ...commonOptions });
+      datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', ...commonOptions });
+      colorIndex++;
+      return;
+    }
 
     if (metric === 'room_temp_rh' && sensor.startsWith('ecs_')) {
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
       const rh = labels.map(time => data[time][sensor]?.rh ?? null);
-      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', fill: false, tension: 0.3 });
-      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', ...commonOptions });
+      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', ...commonOptions });
+      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', ...commonOptions });
       colorIndex++;
       return;
     }
@@ -889,7 +892,7 @@ function updateChartDisplay(data, metric, period) {
     if (metric === 'pm' && sensor.startsWith('ecs_') && !plottedPM.has(sensor)) {
       ['pm1', 'pm25', 'pm10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
       });
       plottedPM.add(sensor);
       colorIndex++;
@@ -899,7 +902,7 @@ function updateChartDisplay(data, metric, period) {
     if (metric === 'nc' && sensor.startsWith('ecs_') && !plottedNC.has(sensor)) {
       ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', fill: false, tension: 0.3 });
+        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
       });
       plottedNC.add(sensor);
       colorIndex++;
@@ -908,7 +911,7 @@ function updateChartDisplay(data, metric, period) {
 
     if (metric === 'avg_particle_size' && sensor.startsWith('ecs_') && !plottedAVG.has(sensor)) {
       const avg = labels.map(t => data[t][sensor]?.avg_particle_size ?? null);
-      datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3 });
+      datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', ...commonOptions });
       plottedAVG.add(sensor);
       colorIndex++;
       return;
