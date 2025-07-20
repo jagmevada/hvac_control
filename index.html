@@ -673,6 +673,7 @@ body {
         }
       }
 
+      // ...existing code...
       card.innerHTML = `
         <div class="card-title">
           <div class="device-icon ${iconClass}">${icon}</div>
@@ -693,7 +694,6 @@ body {
           Last Updated: ${new Date(d.timestamp).toLocaleString()}
         </div>
       `;
-
       return card;
     }
 
