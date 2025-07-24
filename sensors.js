@@ -268,9 +268,10 @@ function showScheduleModal(sensorId, sensorData) {
   const content = document.createElement('div');
   content.style.background = '#23272f';
   content.style.borderRadius = '18px';
-  content.style.padding = '32px 28px 24px 28px';
-  content.style.minWidth = '340px';
-  content.style.maxWidth = '95vw';
+  content.style.padding = '24px 8px 16px 8px';
+  content.style.minWidth = '0';
+  content.style.width = '95vw';
+  content.style.maxWidth = '420px';
   content.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
   content.style.position = 'relative';
 
@@ -381,14 +382,18 @@ function showScheduleModal(sensorId, sensorData) {
       titleRow.style.display = 'flex';
       titleRow.style.alignItems = 'center';
       titleRow.style.justifyContent = 'space-between';
-      titleRow.style.cursor = 'pointer';
       // Time + ON/OFF display
       const timeDiv = document.createElement('div');
       const timeStr = `${sched.hour.toString().padStart(2,'0')}:${sched.minute.toString().padStart(2,'0')} ${sched.ampm}`;
-      timeDiv.innerHTML = `<span style="font-weight:600;">${timeStr}</span> <span style="margin-left:10px;padding:2px 12px;border-radius:12px;font-size:0.95em;font-weight:600;background:${sched.state ? '#56ab2f':'#ff6b6b'};color:#fff;">${sched.state ? 'ON' : 'OFF'}</span>`;
+      timeDiv.innerHTML = `<span style="font-weight:600;cursor:pointer;">${timeStr}</span> <span style="margin-left:10px;padding:2px 12px;border-radius:12px;font-size:0.95em;font-weight:600;background:${sched.state ? '#56ab2f':'#ff6b6b'};color:#fff;">${sched.state ? 'ON' : 'OFF'}</span>`;
       timeDiv.style.fontSize = '1.25em';
       timeDiv.style.fontWeight = '600';
       timeDiv.style.color = '#fff';
+      // Only the time (not ON/OFF) is clickable for edit
+      timeDiv.querySelector('span').onclick = (e) => {
+        e.stopPropagation();
+        showEditScheduleModal(idx);
+      };
       // Enable/disable switch (right side)
       const sliderLabel = document.createElement('label');
       sliderLabel.className = 'switch';
@@ -406,12 +411,6 @@ function showScheduleModal(sensorId, sensorData) {
       sliderLabel.onclick = (e) => {
         e.stopPropagation();
         sched.enabled = !(sched.enabled !== false);
-        renderSchedules();
-      };
-      // Click to edit
-      titleRow.onclick = () => {
-        schedules.forEach(s => s.editing = false);
-        sched.editing = true;
         renderSchedules();
       };
       titleRow.appendChild(timeDiv);
@@ -439,132 +438,198 @@ function showScheduleModal(sensorId, sensorData) {
         });
       }
       item.appendChild(daysRow);
-      // Edit mode
-      if (sched.editing) {
-        // Inline time/day/ampm pickers, ON/OFF toggle, and Save/Cancel buttons
-        const editDiv = document.createElement('div');
-        editDiv.style.marginTop = '14px';
-        editDiv.style.display = 'flex';
-        editDiv.style.alignItems = 'center';
-        editDiv.style.gap = '12px';
-        // ON/OFF toggle
-        const stateToggle = document.createElement('button');
-        stateToggle.type = 'button';
-        stateToggle.textContent = sched.state ? 'ON' : 'OFF';
-        stateToggle.className = sched.state ? 'control-btn on' : 'control-btn off';
-        stateToggle.onclick = (e) => {
-          e.preventDefault();
-          sched.state = !sched.state;
-          renderSchedules();
-        };
-        // Hour
-        const hh = document.createElement('select');
-        hh.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
-        for (let i=1; i<=12; ++i) {
-          const opt = document.createElement('option');
-          opt.value = i;
-          opt.textContent = i.toString().padStart(2,'0');
-          if (i === sched.hour) opt.selected = true;
-          hh.appendChild(opt);
-        }
-        // Minute
-        const mm = document.createElement('select');
-        mm.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
-        [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m;
-          opt.textContent = m.toString().padStart(2,'0');
-          if (m === sched.minute) opt.selected = true;
-          mm.appendChild(opt);
-        });
-        // AM/PM
-        const ampmDiv = document.createElement('div');
-        ampmDiv.style.display = 'flex';
-        ampmDiv.style.flexDirection = 'column';
-        ampmDiv.style.gap = '6px';
-        ampmDiv.style.marginLeft = '8px';
-        const amBtn = document.createElement('button');
-        amBtn.type = 'button';
-        amBtn.textContent = 'AM';
-        amBtn.className = 'ampm-pill';
-        amBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='AM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
-        if (sched.ampm === 'AM') amBtn.classList.add('active');
-        const pmBtn = document.createElement('button');
-        pmBtn.type = 'button';
-        pmBtn.textContent = 'PM';
-        pmBtn.className = 'ampm-pill';
-        pmBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='PM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
-        if (sched.ampm === 'PM') pmBtn.classList.add('active');
-        amBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'AM'; renderSchedules(); };
-        pmBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'PM'; renderSchedules(); };
-        ampmDiv.appendChild(amBtn);
-        ampmDiv.appendChild(pmBtn);
-        // Days selector
-        const daysSel = document.createElement('div');
-        daysSel.style.display = 'flex';
-        daysSel.style.gap = '6px';
-        daysSel.style.marginLeft = '12px';
-        dayShort.forEach((d, i) => {
-          const pill = document.createElement('button');
-          pill.type = 'button';
-          pill.textContent = d;
-          pill.style.padding = '3px 10px';
-          pill.style.borderRadius = '12px';
-          pill.style.background = sched.days.includes(i) ? '#56ab2f' : '#353945';
-          pill.style.color = '#fff';
-          pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
-          pill.onclick = (e) => {
-            e.preventDefault();
-            if (sched.days.includes(i)) {
-              sched.days = sched.days.filter(x => x !== i);
-            } else {
-              sched.days.push(i);
-              sched.days.sort();
-            }
-            renderSchedules();
-          };
-          daysSel.appendChild(pill);
-        });
-        // Save/cancel buttons
-        const saveBtn = document.createElement('button');
-        saveBtn.type = 'button';
-        saveBtn.textContent = 'Save';
-        saveBtn.className = 'control-btn on';
-        saveBtn.style.marginLeft = '18px';
-        saveBtn.onclick = () => {
-          sched.hour = parseInt(hh.value);
-          sched.minute = parseInt(mm.value);
-          sched.editing = false;
-          renderSchedules();
-        };
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.className = 'control-btn';
-        cancelBtn.style.marginLeft = '8px';
-        cancelBtn.onclick = () => {
-          // If this is a new (unsaved) schedule, remove it
-          if (sched.id === -1) {
-            schedules.splice(idx, 1);
-          } else {
-            sched.editing = false;
-          }
-          renderSchedules();
-        };
-        editDiv.appendChild(stateToggle);
-        editDiv.appendChild(hh);
-        editDiv.appendChild(mm);
-        editDiv.appendChild(ampmDiv);
-        editDiv.appendChild(daysSel);
-        editDiv.appendChild(saveBtn);
-        editDiv.appendChild(cancelBtn);
-        item.appendChild(editDiv);
-      }
       schedList.appendChild(item);
     });
   }
   renderSchedules();
   content.appendChild(schedList);
+
+  // Edit modal for a schedule
+  function showEditScheduleModal(idx) {
+    const sched = schedules[idx];
+    // Remove any existing edit modal
+    const oldEdit = document.getElementById('edit-schedule-modal');
+    if (oldEdit) oldEdit.remove();
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'edit-schedule-modal';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'rgba(0,0,0,0.45)';
+    overlay.style.zIndex = '10001';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    // Modal content
+    const box = document.createElement('div');
+    box.style.background = '#23272f';
+    box.style.borderRadius = '18px';
+    box.style.padding = '24px 8px 16px 8px';
+    box.style.minWidth = '0';
+    box.style.width = '95vw';
+    box.style.maxWidth = '420px';
+    box.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+    box.style.position = 'relative';
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'Edit Schedule';
+    title.style.marginBottom = '12px';
+    title.style.color = '#fff';
+    box.appendChild(title);
+    // Edit controls: group into rows
+    const row1 = document.createElement('div');
+    row1.style.display = 'flex';
+    row1.style.alignItems = 'center';
+    row1.style.gap = '12px';
+    row1.style.marginBottom = '12px';
+    // ON/OFF toggle
+    const stateToggle = document.createElement('button');
+    stateToggle.type = 'button';
+    stateToggle.textContent = sched.state ? 'ON' : 'OFF';
+    stateToggle.className = sched.state ? 'control-btn on' : 'control-btn off';
+    stateToggle.onclick = (e) => {
+      e.preventDefault();
+      sched.state = !sched.state;
+      stateToggle.textContent = sched.state ? 'ON' : 'OFF';
+      stateToggle.className = sched.state ? 'control-btn on' : 'control-btn off';
+    };
+    // Hour
+    const hh = document.createElement('select');
+    hh.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
+    for (let i=1; i<=12; ++i) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i.toString().padStart(2,'0');
+      if (i === sched.hour) opt.selected = true;
+      hh.appendChild(opt);
+    }
+    // Minute
+    const mm = document.createElement('select');
+    mm.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
+    [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m.toString().padStart(2,'0');
+      if (m === sched.minute) opt.selected = true;
+      mm.appendChild(opt);
+    });
+    // AM/PM
+    const ampmDiv = document.createElement('div');
+    ampmDiv.style.display = 'flex';
+    ampmDiv.style.flexDirection = 'column';
+    ampmDiv.style.gap = '6px';
+    ampmDiv.style.marginLeft = '8px';
+    const amBtn = document.createElement('button');
+    amBtn.type = 'button';
+    amBtn.textContent = 'AM';
+    amBtn.className = 'ampm-pill';
+    amBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='AM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
+    if (sched.ampm === 'AM') amBtn.classList.add('active');
+    const pmBtn = document.createElement('button');
+    pmBtn.type = 'button';
+    pmBtn.textContent = 'PM';
+    pmBtn.className = 'ampm-pill';
+    pmBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='PM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
+    if (sched.ampm === 'PM') pmBtn.classList.add('active');
+    amBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'AM'; amBtn.classList.add('active'); amBtn.style.background = '#56ab2f'; pmBtn.classList.remove('active'); pmBtn.style.background = '#353945'; };
+    pmBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'PM'; pmBtn.classList.add('active'); pmBtn.style.background = '#56ab2f'; amBtn.classList.remove('active'); amBtn.style.background = '#353945'; };
+    ampmDiv.appendChild(amBtn);
+    ampmDiv.appendChild(pmBtn);
+    row1.appendChild(stateToggle);
+    row1.appendChild(hh);
+    row1.appendChild(mm);
+    row1.appendChild(ampmDiv);
+
+    // Row 2: Days selector
+    const row2 = document.createElement('div');
+    row2.style.display = 'flex';
+    row2.style.gap = '6px';
+    row2.style.margin = '12px 0 12px 0';
+    dayShort.forEach((d, i) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.textContent = d;
+      pill.style.padding = '3px 10px';
+      pill.style.borderRadius = '12px';
+      pill.style.background = sched.days.includes(i) ? '#56ab2f' : '#353945';
+      pill.style.color = '#fff';
+      pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
+      pill.onclick = (e) => {
+        e.preventDefault();
+        if (sched.days.includes(i)) {
+          sched.days = sched.days.filter(x => x !== i);
+        } else {
+          sched.days.push(i);
+          sched.days.sort();
+        }
+        // Update UI immediately
+        pill.style.background = sched.days.includes(i) ? '#56ab2f' : '#353945';
+        pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
+      };
+      row2.appendChild(pill);
+    });
+
+    // Row 3: Save/Cancel
+    const row3 = document.createElement('div');
+    row3.style.display = 'flex';
+    row3.style.gap = '12px';
+    row3.style.marginTop = '8px';
+    // Save/cancel buttons
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.className = 'control-btn on';
+    saveBtn.onclick = () => {
+      sched.hour = parseInt(hh.value);
+      sched.minute = parseInt(mm.value);
+      // ampm, state, days already updated
+      overlay.remove();
+      renderSchedules();
+    };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'control-btn';
+    cancelBtn.onclick = () => {
+      // If this is a new (unsaved) schedule, remove it
+      if (sched.id === -1) {
+        schedules.splice(idx, 1);
+      }
+      overlay.remove();
+      renderSchedules();
+    };
+    row3.appendChild(saveBtn);
+    row3.appendChild(cancelBtn);
+
+    // Add all rows to box
+    box.appendChild(row1);
+    box.appendChild(row2);
+    box.appendChild(row3);
+    // Close button (top right)
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '12px';
+    closeBtn.style.right = '18px';
+    closeBtn.style.background = 'none';
+    closeBtn.style.border = 'none';
+    closeBtn.style.fontSize = '2rem';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.onclick = () => {
+      if (sched.id === -1) {
+        schedules.splice(idx, 1);
+      }
+      overlay.remove();
+      renderSchedules();
+    };
+    box.appendChild(closeBtn);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
 
 
   // Top-right + button beside close (x)
@@ -589,9 +654,7 @@ function showScheduleModal(sensorId, sensorData) {
   addBtn.onmouseenter = () => addBtn.style.background = '#6fdc4b';
   addBtn.onmouseleave = () => addBtn.style.background = '#56ab2f';
   addBtn.onclick = () => {
-    // Only one new schedule at a time
-    if (schedules.some(s => s.editing && s.id === -1)) return;
-    schedules.forEach(s => s.editing = false);
+    // Allow adding multiple schedules (editing is now in a separate modal)
     schedules.push({
       id: -1,
       state: true, // ON/OFF action for IoT
@@ -599,10 +662,11 @@ function showScheduleModal(sensorId, sensorData) {
       hour: 8,
       minute: 0,
       ampm: 'AM',
-      days: [1,2,3,4,5,6,0],
-      editing: true
+      days: [1,2,3,4,5,6,0]
     });
     renderSchedules();
+    // Immediately open the edit modal for the new schedule
+    showEditScheduleModal(schedules.length - 1);
   };
   content.appendChild(addBtn);
 
