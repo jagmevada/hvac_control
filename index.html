@@ -331,6 +331,7 @@ body {
     <button class="tab-button active" onclick="showTab('overview')">📊 Overview</button>
     <button class="tab-button" onclick="showTab('analytics')">📈 Analytics</button>
     <button class="tab-button" onclick="showTab('alerts')">🚨 Alerts</button>
+    <!-- <button class="tab-button" onclick="showTab('schedule')">⏰ Schedule</button> -->
   </div>
 
   <div id="overview-tab" class="tab-content active">
@@ -370,6 +371,7 @@ body {
 
 
 
+
   <div id="alerts-tab" class="tab-content">
     <div class="chart-container">
       <div class="chart-title">🚨 Alert Configuration</div>
@@ -378,6 +380,8 @@ body {
       </div>
     </div>
   </div>
+
+  <!-- Schedule tab removed: now handled per-device detail modal -->
 
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
@@ -427,10 +431,16 @@ body {
         window.restoreAnalyticsSettings();
         window.updateChart();
       }
+      // If switching to schedule, fetch schedules (to be implemented)
+      if (tabName === 'schedule' && window.fetchSchedules) {
+        window.fetchSchedules();
+      }
     };
 
     // Import main app logic
     import './app.js';
+    import './schedule.js';
+    import './sensors.js';
   </script>
 </body>
 </html>

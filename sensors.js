@@ -24,7 +24,7 @@ export async function fetchSensorData() {
   }
 }
 
-// Display sensor data in the UI
+// Display sensor data in the UI (with modular card/modal/next event logic)
 export function displayData(data) {
   const container = document.getElementById("sensor-container");
   container.innerHTML = "";
@@ -44,6 +44,20 @@ export function displayData(data) {
     rooms[room][sensorId] = data;
   });
 
+  // Demo/mock schedule data for ac1_r1
+  const mockSchedules = [
+    { id: 1, type: 'timer', state: true, time: '2025-07-21T08:30:00', label: 'ON' },
+    { id: 2, type: 'schedule', state: false, time: '2025-07-21T18:00:00', label: 'OFF' }
+  ];
+
+  // Helper to get next event for a device
+  function getNextEvent(sensorId) {
+    if (sensorId !== 'ac1_r1') return null;
+    const now = new Date();
+    const next = mockSchedules.find(s => new Date(s.time) > now);
+    return next ? `Next: ${next.label} at ${new Date(next.time).toLocaleString()}` : 'No upcoming events';
+  }
+
   // Display each room
   Object.entries(rooms).forEach(([roomId, sensors]) => {
     if (Object.keys(sensors).length === 0) return;
@@ -58,6 +72,52 @@ export function displayData(data) {
     // Create cards in sorted order
     Object.keys(sensors).sort().forEach(sensorId => {
       const card = createSensorCard(sensorId, sensors[sensorId]);
+      // Add analog clock button at top-right and next event below last updated for ac1_r1
+      if (sensorId === 'ac1_r1') {
+        // Add 4 icon buttons (top-right)
+        // Only calendar and alarm clock icons, each with separate modal logic
+        card.style.position = 'relative';
+        // Calendar (Schedule)
+        const calendarBtn = document.createElement('button');
+        calendarBtn.type = 'button';
+        calendarBtn.title = 'View Schedules (Calendar)';
+        calendarBtn.style.position = 'absolute';
+        calendarBtn.style.top = '12px';
+        calendarBtn.style.right = '54px';
+        calendarBtn.style.background = 'none';
+        calendarBtn.style.border = 'none';
+        calendarBtn.style.cursor = 'pointer';
+        calendarBtn.style.fontSize = '1.5rem';
+        calendarBtn.style.zIndex = '2';
+        calendarBtn.innerHTML = '<span style="font-size:1.7em;">📅</span>';
+        calendarBtn.onclick = () => showScheduleModal(sensorId, sensors[sensorId]);
+        card.appendChild(calendarBtn);
+
+        // Alarm clock (Timer)
+        const timerBtn = document.createElement('button');
+        timerBtn.type = 'button';
+        timerBtn.title = 'View Timers (Clock)';
+        timerBtn.style.position = 'absolute';
+        timerBtn.style.top = '12px';
+        timerBtn.style.right = '16px';
+        timerBtn.style.background = 'none';
+        timerBtn.style.border = 'none';
+        timerBtn.style.cursor = 'pointer';
+        timerBtn.style.fontSize = '1.5rem';
+        timerBtn.style.zIndex = '2';
+        timerBtn.innerHTML = '<span style="font-size:1.7em;">⏲️</span>';
+        timerBtn.onclick = () => showTimerModal(sensorId, sensors[sensorId]);
+        card.appendChild(timerBtn);
+
+        // Show next event below last updated
+        const tsDiv = card.querySelector('.timestamp');
+        const nextEvent = document.createElement('div');
+        nextEvent.style.fontSize = tsDiv.style.fontSize;
+        nextEvent.style.color = tsDiv.style.color;
+        nextEvent.style.marginTop = '2px';
+        nextEvent.textContent = getNextEvent(sensorId);
+        tsDiv.insertAdjacentElement('afterend', nextEvent);
+      }
       cardsGrid.appendChild(card);
     });
 
@@ -182,6 +242,486 @@ function createSensorCard(sensorId, d) {
     </div>
   `;
   return card;
+}
+
+// Modal for schedule (calendar icon)
+function showScheduleModal(sensorId, sensorData) {
+  // Remove existing modal if any
+  const old = document.getElementById('device-detail-modal');
+  if (old) old.remove();
+
+  // Modal container
+  const modal = document.createElement('div');
+  modal.id = 'device-detail-modal';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.background = 'rgba(0,0,0,0.45)';
+  modal.style.zIndex = '9999';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+
+  // Modal content
+  const content = document.createElement('div');
+  content.style.background = '#23272f';
+  content.style.borderRadius = '18px';
+  content.style.padding = '32px 28px 24px 28px';
+  content.style.minWidth = '340px';
+  content.style.maxWidth = '95vw';
+  content.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+  content.style.position = 'relative';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '×';
+  closeBtn.style.position = 'absolute';
+  closeBtn.style.top = '12px';
+  closeBtn.style.right = '18px';
+  closeBtn.style.background = 'none';
+  closeBtn.style.border = 'none';
+  closeBtn.style.fontSize = '2rem';
+  closeBtn.style.color = '#fff';
+  closeBtn.style.cursor = 'pointer';
+  closeBtn.onclick = () => modal.remove();
+  content.appendChild(closeBtn);
+
+  // Title
+  const title = document.createElement('h2');
+  title.textContent = `${sensorId.toUpperCase()} Schedules`;
+  title.style.marginBottom = '12px';
+  title.style.color = '#fff';
+  content.appendChild(title);
+
+
+  // (No global time picker or repeat UI. Edit controls are shown only in per-schedule edit mode below.)
+
+  // List of schedules (mock, with ON/OFF slider, time, days, and edit mode)
+  const schedList = document.createElement('div');
+  schedList.style.marginTop = '18px';
+  schedList.innerHTML = '<b>Current Schedules:</b>';
+  // Example mock data for two schedules (now mutable)
+  let schedules = [];
+  let nextId = 1;
+  const dayShort = ['S','M','T','W','T','F','S'];
+
+  // Helper: show delete confirmation
+  function showDeleteConfirm(idx) {
+    const confirmDiv = document.createElement('div');
+    confirmDiv.style.position = 'fixed';
+    confirmDiv.style.top = '0';
+    confirmDiv.style.left = '0';
+    confirmDiv.style.width = '100vw';
+    confirmDiv.style.height = '100vh';
+    confirmDiv.style.background = 'rgba(0,0,0,0.45)';
+    confirmDiv.style.zIndex = '10000';
+    confirmDiv.style.display = 'flex';
+    confirmDiv.style.alignItems = 'center';
+    confirmDiv.style.justifyContent = 'center';
+    const box = document.createElement('div');
+    box.style.background = '#23272f';
+    box.style.borderRadius = '16px';
+    box.style.padding = '32px 32px 24px 32px';
+    box.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+    box.style.textAlign = 'center';
+    box.innerHTML = `<div style="color:#fff;font-size:1.2em;margin-bottom:18px;">Delete this schedule?</div>`;
+    const delBtn = document.createElement('button');
+    delBtn.textContent = 'Delete';
+    delBtn.className = 'control-btn on';
+    delBtn.style.margin = '0 12px';
+    delBtn.onclick = () => {
+      schedules.splice(idx, 1);
+      confirmDiv.remove();
+      renderSchedules();
+    };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'control-btn';
+    cancelBtn.onclick = () => confirmDiv.remove();
+    box.appendChild(delBtn);
+    box.appendChild(cancelBtn);
+    confirmDiv.appendChild(box);
+    document.body.appendChild(confirmDiv);
+  }
+
+  // Long-press helper
+  function addLongPressDelete(item, idx) {
+    let pressTimer = null;
+    item.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      pressTimer = setTimeout(() => showDeleteConfirm(idx), 700);
+    });
+    item.addEventListener('mouseup', () => clearTimeout(pressTimer));
+    item.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+    // Touch events for mobile
+    item.addEventListener('touchstart', (e) => {
+      pressTimer = setTimeout(() => showDeleteConfirm(idx), 700);
+    });
+    item.addEventListener('touchend', () => clearTimeout(pressTimer));
+    item.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+  }
+
+  function renderSchedules() {
+    schedList.querySelectorAll('.sched-item').forEach(e => e.remove());
+    schedules.forEach((sched, idx) => {
+      const item = document.createElement('div');
+      item.className = 'sched-item';
+      item.style.background = '#23272f';
+      item.style.borderRadius = '12px';
+      item.style.margin = '10px 0';
+      item.style.padding = '14px 18px 10px 18px';
+      item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+      item.style.position = 'relative';
+      // Add long-press to delete
+      addLongPressDelete(item, idx);
+      // Title row (time + ON/OFF + enable/disable switch)
+      const titleRow = document.createElement('div');
+      titleRow.style.display = 'flex';
+      titleRow.style.alignItems = 'center';
+      titleRow.style.justifyContent = 'space-between';
+      titleRow.style.cursor = 'pointer';
+      // Time + ON/OFF display
+      const timeDiv = document.createElement('div');
+      const timeStr = `${sched.hour.toString().padStart(2,'0')}:${sched.minute.toString().padStart(2,'0')} ${sched.ampm}`;
+      timeDiv.innerHTML = `<span style="font-weight:600;">${timeStr}</span> <span style="margin-left:10px;padding:2px 12px;border-radius:12px;font-size:0.95em;font-weight:600;background:${sched.state ? '#56ab2f':'#ff6b6b'};color:#fff;">${sched.state ? 'ON' : 'OFF'}</span>`;
+      timeDiv.style.fontSize = '1.25em';
+      timeDiv.style.fontWeight = '600';
+      timeDiv.style.color = '#fff';
+      // Enable/disable switch (right side)
+      const sliderLabel = document.createElement('label');
+      sliderLabel.className = 'switch';
+      sliderLabel.style.display = 'inline-block';
+      sliderLabel.style.width = '44px';
+      sliderLabel.style.height = '24px';
+      sliderLabel.style.marginLeft = '12px';
+      sliderLabel.style.position = 'relative';
+      sliderLabel.innerHTML = `
+        <input type="checkbox" ${sched.enabled !== false ? 'checked' : ''} style="display:none;">
+        <span class="slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:${sched.enabled !== false ? '#56ab2f' : '#353945'};border-radius:24px;transition:.4s;"></span>
+        <span class="knob" style="position:absolute;height:20px;width:20px;left:${sched.enabled !== false ? '22px' : '2px'};top:2px;background:#fff;border-radius:50%;transition:.4s;"></span>
+      `;
+      // Toggle logic for enable/disable
+      sliderLabel.onclick = (e) => {
+        e.stopPropagation();
+        sched.enabled = !(sched.enabled !== false);
+        renderSchedules();
+      };
+      // Click to edit
+      titleRow.onclick = () => {
+        schedules.forEach(s => s.editing = false);
+        sched.editing = true;
+        renderSchedules();
+      };
+      titleRow.appendChild(timeDiv);
+      titleRow.appendChild(sliderLabel);
+      item.appendChild(titleRow);
+      // Days row
+      const daysRow = document.createElement('div');
+      daysRow.style.marginTop = '8px';
+      daysRow.style.display = 'flex';
+      daysRow.style.gap = '6px';
+      daysRow.style.fontSize = '1em';
+      daysRow.style.color = '#fff';
+      if (sched.days.length === 7) {
+        daysRow.innerHTML = '<span style="color:#56ab2f;font-weight:500;">Everyday</span>';
+      } else {
+        dayShort.forEach((d, i) => {
+          const pill = document.createElement('span');
+          pill.textContent = d;
+          pill.style.padding = '3px 10px';
+          pill.style.borderRadius = '12px';
+          pill.style.background = sched.days.includes(i) ? '#56ab2f' : '#353945';
+          pill.style.color = '#fff';
+          pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
+          daysRow.appendChild(pill);
+        });
+      }
+      item.appendChild(daysRow);
+      // Edit mode
+      if (sched.editing) {
+        // Inline time/day/ampm pickers, ON/OFF toggle, and Save/Cancel buttons
+        const editDiv = document.createElement('div');
+        editDiv.style.marginTop = '14px';
+        editDiv.style.display = 'flex';
+        editDiv.style.alignItems = 'center';
+        editDiv.style.gap = '12px';
+        // ON/OFF toggle
+        const stateToggle = document.createElement('button');
+        stateToggle.type = 'button';
+        stateToggle.textContent = sched.state ? 'ON' : 'OFF';
+        stateToggle.className = sched.state ? 'control-btn on' : 'control-btn off';
+        stateToggle.onclick = (e) => {
+          e.preventDefault();
+          sched.state = !sched.state;
+          renderSchedules();
+        };
+        // Hour
+        const hh = document.createElement('select');
+        hh.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
+        for (let i=1; i<=12; ++i) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = i.toString().padStart(2,'0');
+          if (i === sched.hour) opt.selected = true;
+          hh.appendChild(opt);
+        }
+        // Minute
+        const mm = document.createElement('select');
+        mm.style.cssText = 'font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);outline:none;appearance:none;';
+        [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m.toString().padStart(2,'0');
+          if (m === sched.minute) opt.selected = true;
+          mm.appendChild(opt);
+        });
+        // AM/PM
+        const ampmDiv = document.createElement('div');
+        ampmDiv.style.display = 'flex';
+        ampmDiv.style.flexDirection = 'column';
+        ampmDiv.style.gap = '6px';
+        ampmDiv.style.marginLeft = '8px';
+        const amBtn = document.createElement('button');
+        amBtn.type = 'button';
+        amBtn.textContent = 'AM';
+        amBtn.className = 'ampm-pill';
+        amBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='AM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
+        if (sched.ampm === 'AM') amBtn.classList.add('active');
+        const pmBtn = document.createElement('button');
+        pmBtn.type = 'button';
+        pmBtn.textContent = 'PM';
+        pmBtn.className = 'ampm-pill';
+        pmBtn.style.cssText = 'border:none;border-radius:16px;padding:6px 18px;background:'+(sched.ampm==='PM'?'#56ab2f':'#353945')+';color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;';
+        if (sched.ampm === 'PM') pmBtn.classList.add('active');
+        amBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'AM'; renderSchedules(); };
+        pmBtn.onclick = (e) => { e.preventDefault(); sched.ampm = 'PM'; renderSchedules(); };
+        ampmDiv.appendChild(amBtn);
+        ampmDiv.appendChild(pmBtn);
+        // Days selector
+        const daysSel = document.createElement('div');
+        daysSel.style.display = 'flex';
+        daysSel.style.gap = '6px';
+        daysSel.style.marginLeft = '12px';
+        dayShort.forEach((d, i) => {
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.textContent = d;
+          pill.style.padding = '3px 10px';
+          pill.style.borderRadius = '12px';
+          pill.style.background = sched.days.includes(i) ? '#56ab2f' : '#353945';
+          pill.style.color = '#fff';
+          pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
+          pill.onclick = (e) => {
+            e.preventDefault();
+            if (sched.days.includes(i)) {
+              sched.days = sched.days.filter(x => x !== i);
+            } else {
+              sched.days.push(i);
+              sched.days.sort();
+            }
+            renderSchedules();
+          };
+          daysSel.appendChild(pill);
+        });
+        // Save/cancel buttons
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.textContent = 'Save';
+        saveBtn.className = 'control-btn on';
+        saveBtn.style.marginLeft = '18px';
+        saveBtn.onclick = () => {
+          sched.hour = parseInt(hh.value);
+          sched.minute = parseInt(mm.value);
+          sched.editing = false;
+          renderSchedules();
+        };
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'control-btn';
+        cancelBtn.style.marginLeft = '8px';
+        cancelBtn.onclick = () => {
+          // If this is a new (unsaved) schedule, remove it
+          if (sched.id === -1) {
+            schedules.splice(idx, 1);
+          } else {
+            sched.editing = false;
+          }
+          renderSchedules();
+        };
+        editDiv.appendChild(stateToggle);
+        editDiv.appendChild(hh);
+        editDiv.appendChild(mm);
+        editDiv.appendChild(ampmDiv);
+        editDiv.appendChild(daysSel);
+        editDiv.appendChild(saveBtn);
+        editDiv.appendChild(cancelBtn);
+        item.appendChild(editDiv);
+      }
+      schedList.appendChild(item);
+    });
+  }
+  renderSchedules();
+  content.appendChild(schedList);
+
+
+  // Top-right + button beside close (x)
+  const addBtn = document.createElement('button');
+  addBtn.title = 'Add Schedule';
+  addBtn.innerHTML = '<span style="font-size:1.7em;line-height:1;">＋</span>';
+  addBtn.style.position = 'absolute';
+  addBtn.style.top = '12px';
+  addBtn.style.right = '54px';
+  addBtn.style.width = '40px';
+  addBtn.style.height = '40px';
+  addBtn.style.borderRadius = '50%';
+  addBtn.style.background = '#56ab2f';
+  addBtn.style.color = '#fff';
+  addBtn.style.border = 'none';
+  addBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
+  addBtn.style.zIndex = '1001';
+  addBtn.style.cursor = 'pointer';
+  addBtn.style.display = 'flex';
+  addBtn.style.alignItems = 'center';
+  addBtn.style.justifyContent = 'center';
+  addBtn.onmouseenter = () => addBtn.style.background = '#6fdc4b';
+  addBtn.onmouseleave = () => addBtn.style.background = '#56ab2f';
+  addBtn.onclick = () => {
+    // Only one new schedule at a time
+    if (schedules.some(s => s.editing && s.id === -1)) return;
+    schedules.forEach(s => s.editing = false);
+    schedules.push({
+      id: -1,
+      state: true, // ON/OFF action for IoT
+      enabled: true, // schedule enabled by default
+      hour: 8,
+      minute: 0,
+      ampm: 'AM',
+      days: [1,2,3,4,5,6,0],
+      editing: true
+    });
+    renderSchedules();
+  };
+  content.appendChild(addBtn);
+
+  // When modal closes, no need to remove addBtn (it's inside content)
+  closeBtn.onclick = () => {
+    modal.remove();
+  };
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
+// Modal for timer (clock icon)
+function showTimerModal(sensorId, sensorData) {
+  // Remove existing modal if any
+  const old = document.getElementById('device-detail-modal');
+  if (old) old.remove();
+
+  // Modal container
+  const modal = document.createElement('div');
+  modal.id = 'device-detail-modal';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.background = 'rgba(0,0,0,0.45)';
+  modal.style.zIndex = '9999';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+
+  // Modal content
+  const content = document.createElement('div');
+  content.style.background = '#23272f';
+  content.style.borderRadius = '18px';
+  content.style.padding = '32px 28px 24px 28px';
+  content.style.minWidth = '340px';
+  content.style.maxWidth = '95vw';
+  content.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+  content.style.position = 'relative';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '×';
+  closeBtn.style.position = 'absolute';
+  closeBtn.style.top = '12px';
+  closeBtn.style.right = '18px';
+  closeBtn.style.background = 'none';
+  closeBtn.style.border = 'none';
+  closeBtn.style.fontSize = '2rem';
+  closeBtn.style.color = '#fff';
+  closeBtn.style.cursor = 'pointer';
+  closeBtn.onclick = () => modal.remove();
+  content.appendChild(closeBtn);
+
+  // Title
+  const title = document.createElement('h2');
+  title.textContent = `${sensorId.toUpperCase()} Timers`;
+  title.style.marginBottom = '12px';
+  title.style.color = '#fff';
+  content.appendChild(title);
+
+  // Timer form with Android-style hour/minute pickers
+  const timerForm = document.createElement('form');
+  timerForm.style.marginBottom = '18px';
+  timerForm.style.display = 'flex';
+  timerForm.style.flexDirection = 'column';
+  timerForm.style.alignItems = 'flex-start';
+  timerForm.innerHTML = `
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:18px;justify-content:center;width:100%;">
+      <span style="font-size:1.1em;color:#ccc;">Duration:</span>
+      <select id="timer-hh" style="font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);margin:0 4px 0 0;outline:none;appearance:none;">
+        ${Array.from({length:12},(_,i)=>`<option value="${i+1}">${(i+1).toString().padStart(2,'0')}</option>`).join('')}
+      </select>
+      <span style="font-size:1.2em;color:#aaa;">h</span>
+      <select id="timer-mm" style="font-size:1.5em;padding:10px 18px;border-radius:16px;border:1.5px solid #444;background:#23272f;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.10);margin:0 4px 0 0;outline:none;appearance:none;">
+        ${[0,5,10,15,20,25,30,35,40,45,50,55].map(i=>`<option value="${i}">${i.toString().padStart(2,'0')}</option>`).join('')}
+      </select>
+      <span style="font-size:1.2em;color:#aaa;">m</span>
+      <div id="timer-ampm" style="display:flex;flex-direction:column;gap:6px;margin-left:12px;">
+        <button type="button" class="ampm-pill am active" style="border:none;border-radius:16px;padding:6px 18px;background:#56ab2f;color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;">AM</button>
+        <button type="button" class="ampm-pill pm" style="border:none;border-radius:16px;padding:6px 18px;background:#353945;color:#fff;font-weight:500;cursor:pointer;transition:background 0.2s;">PM</button>
+      </div>
+    </div>
+    <button type="submit" class="control-btn on" style="align-self:center;min-width:140px;font-size:1.1em;">Start Timer</button>
+  `;
+  // AM/PM pill logic
+  const timerAmBtn = timerForm.querySelector('.ampm-pill.am');
+  const timerPmBtn = timerForm.querySelector('.ampm-pill.pm');
+  let timerAmPm = 'AM';
+  timerAmBtn.onclick = (e) => {
+    e.preventDefault();
+    timerAmBtn.classList.add('active');
+    timerAmBtn.style.background = '#56ab2f';
+    timerPmBtn.classList.remove('active');
+    timerPmBtn.style.background = '#353945';
+    timerAmPm = 'AM';
+  };
+  timerPmBtn.onclick = (e) => {
+    e.preventDefault();
+    timerPmBtn.classList.add('active');
+    timerPmBtn.style.background = '#56ab2f';
+    timerAmBtn.classList.remove('active');
+    timerAmBtn.style.background = '#353945';
+    timerAmPm = 'PM';
+  };
+  content.appendChild(timerForm);
+
+  // List of timers (mock)
+  const timerList = document.createElement('div');
+  timerList.style.marginTop = '18px';
+  timerList.innerHTML = '<b>Current Timers:</b><ul style="margin-top:8px;">'
+    + '<li>ON at 21/07/25 08:30 (Timer)</li>'
+    + '</ul>';
+  content.appendChild(timerList);
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
 }
 
 // Show notification banner
