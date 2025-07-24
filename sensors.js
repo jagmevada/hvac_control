@@ -89,6 +89,7 @@ export function displayData(data) {
         calendarBtn.style.cursor = 'pointer';
         calendarBtn.style.fontSize = '1.5rem';
         calendarBtn.style.zIndex = '2';
+        calendarBtn.style.marginRight = '12px'; // Add spacing between icons
         calendarBtn.innerHTML = '<span style="font-size:1.7em;">📅</span>';
         calendarBtn.onclick = () => showScheduleModal(sensorId, sensors[sensorId]);
         card.appendChild(calendarBtn);
@@ -302,7 +303,8 @@ function showScheduleModal(sensorId, sensorData) {
   // List of schedules (mock, with ON/OFF slider, time, days, and edit mode)
   const schedList = document.createElement('div');
   schedList.style.marginTop = '18px';
-  schedList.innerHTML = '<b>Current Schedules:</b>';
+  // Title will be set in renderSchedules
+  schedList.innerHTML = '';
   // Example mock data for two schedules (now mutable)
   let schedules = [];
   let nextId = 1;
@@ -365,16 +367,57 @@ function showScheduleModal(sensorId, sensorData) {
   }
 
   function renderSchedules() {
-    schedList.querySelectorAll('.sched-item').forEach(e => e.remove());
-    schedules.forEach((sched, idx) => {
+    // Remove previous title and items
+    schedList.innerHTML = '';
+    // Title logic
+    const titleDiv = document.createElement('div');
+    titleDiv.style.fontWeight = 'bold';
+    titleDiv.style.fontSize = '1.08em';
+    titleDiv.style.color = '#fff';
+    titleDiv.style.marginBottom = '4px';
+    if (schedules.length === 0) {
+      titleDiv.textContent = 'No schedule';
+    } else {
+      titleDiv.textContent = 'Schedules';
+    }
+    schedList.appendChild(titleDiv);
+    // Sort schedules by time (AM/PM, hour, minute)
+    const ampmOrder = { 'AM': 0, 'PM': 1 };
+    const sortedSchedules = schedules.slice().sort((a, b) => {
+      // Compare AM/PM first
+      if (ampmOrder[a.ampm] !== ampmOrder[b.ampm]) {
+        return ampmOrder[a.ampm] - ampmOrder[b.ampm];
+      }
+      // Then hour (1-12)
+      if (a.hour !== b.hour) {
+        return a.hour - b.hour;
+      }
+      // Then minute
+      return a.minute - b.minute;
+    });
+    // Render schedule items
+    sortedSchedules.forEach((sched, idx) => {
       const item = document.createElement('div');
       item.className = 'sched-item';
-      item.style.background = '#23272f';
-      item.style.borderRadius = '12px';
-      item.style.margin = '10px 0';
-      item.style.padding = '14px 18px 10px 18px';
-      item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+      // Pill style, gray out if disabled
+      const isDisabled = sched.enabled === false;
+      item.style.background = isDisabled
+        ? 'linear-gradient(90deg, #23242a 80%, #23242aEE 100%)'
+        : 'linear-gradient(90deg, #353945 80%, #353945EE 100%)';
+      item.style.borderRadius = '32px';
+      item.style.margin = '12px 0';
+      item.style.padding = '16px 20px 14px 20px';
+      item.style.boxShadow = isDisabled
+        ? '0 2px 8px rgba(0,0,0,0.08)'
+        : '0 4px 16px rgba(0,0,0,0.10), 0 1.5px 4px rgba(86,171,47,0.08)';
       item.style.position = 'relative';
+      item.style.display = 'flex';
+      item.style.flexDirection = 'column';
+      item.style.transition = 'box-shadow 0.2s, background 0.2s';
+      item.style.opacity = isDisabled ? '0.55' : '1';
+      item.style.pointerEvents = isDisabled ? 'auto' : 'auto'; // allow slider
+      // Only allow interaction with enableBtn if disabled
+      // We'll set pointer-events:none on all children except enableBtn if disabled
       // Add long-press to delete
       addLongPressDelete(item, idx);
       // Title row (time + ON/OFF + enable/disable switch)
@@ -390,31 +433,45 @@ function showScheduleModal(sensorId, sensorData) {
       timeDiv.style.fontWeight = '600';
       timeDiv.style.color = '#fff';
       // Only the time (not ON/OFF) is clickable for edit
-      timeDiv.querySelector('span').onclick = (e) => {
-        e.stopPropagation();
-        showEditScheduleModal(idx);
-      };
-      // Enable/disable switch (right side)
-      const sliderLabel = document.createElement('label');
-      sliderLabel.className = 'switch';
-      sliderLabel.style.display = 'inline-block';
-      sliderLabel.style.width = '44px';
-      sliderLabel.style.height = '24px';
-      sliderLabel.style.marginLeft = '12px';
-      sliderLabel.style.position = 'relative';
-      sliderLabel.innerHTML = `
-        <input type="checkbox" ${sched.enabled !== false ? 'checked' : ''} style="display:none;">
-        <span class="slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:${sched.enabled !== false ? '#56ab2f' : '#353945'};border-radius:24px;transition:.4s;"></span>
+      if (!isDisabled) {
+        timeDiv.querySelector('span').onclick = (e) => {
+          e.stopPropagation();
+          showEditScheduleModal(idx);
+        };
+      } else {
+        timeDiv.querySelector('span').style.cursor = 'not-allowed';
+      }
+      // Enable/disable switch (right side) - use a button for reliability
+      const enableBtn = document.createElement('button');
+      enableBtn.type = 'button';
+      enableBtn.setAttribute('aria-label', sched.enabled !== false ? 'Disable schedule' : 'Enable schedule');
+      enableBtn.style.display = 'inline-block';
+      enableBtn.style.width = '44px';
+      enableBtn.style.height = '24px';
+      enableBtn.style.marginLeft = '12px';
+      enableBtn.style.position = 'relative';
+      enableBtn.style.background = 'none';
+      enableBtn.style.border = 'none';
+      enableBtn.style.padding = '0';
+      enableBtn.style.cursor = 'pointer';
+      enableBtn.innerHTML = `
+        <span class="slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:${sched.enabled !== false ? '#56ab2f' : '#181a20'};border-radius:24px;transition:.4s;width:44px;height:24px;"></span>
         <span class="knob" style="position:absolute;height:20px;width:20px;left:${sched.enabled !== false ? '22px' : '2px'};top:2px;background:#fff;border-radius:50%;transition:.4s;"></span>
       `;
-      // Toggle logic for enable/disable
-      sliderLabel.onclick = (e) => {
+      enableBtn.onclick = (e) => {
         e.stopPropagation();
         sched.enabled = !(sched.enabled !== false);
         renderSchedules();
       };
+      // If disabled, make only enableBtn interactive
+      if (isDisabled) {
+        timeDiv.style.pointerEvents = 'none';
+        titleRow.style.pointerEvents = 'none';
+        item.style.pointerEvents = 'auto';
+        enableBtn.style.pointerEvents = 'auto';
+      }
       titleRow.appendChild(timeDiv);
-      titleRow.appendChild(sliderLabel);
+      titleRow.appendChild(enableBtn);
       item.appendChild(titleRow);
       // Days row
       const daysRow = document.createElement('div');
@@ -436,6 +493,11 @@ function showScheduleModal(sensorId, sensorData) {
           pill.style.fontWeight = sched.days.includes(i) ? '600' : '400';
           daysRow.appendChild(pill);
         });
+      }
+      // If disabled, gray out days row and make not interactive
+      if (isDisabled) {
+        daysRow.style.opacity = '0.7';
+        daysRow.style.pointerEvents = 'none';
       }
       item.appendChild(daysRow);
       schedList.appendChild(item);
