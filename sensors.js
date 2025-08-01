@@ -82,15 +82,17 @@ export function displayData(data) {
         calendarBtn.type = 'button';
         calendarBtn.title = 'View Schedules (Calendar)';
         calendarBtn.style.position = 'absolute';
-        calendarBtn.style.top = '12px';
-        calendarBtn.style.right = '54px';
+        calendarBtn.style.top = '8px';
+        calendarBtn.style.right = '38px';
         calendarBtn.style.background = 'none';
         calendarBtn.style.border = 'none';
         calendarBtn.style.cursor = 'pointer';
-        calendarBtn.style.fontSize = '1.5rem';
+        calendarBtn.style.fontSize = '1.1rem';
         calendarBtn.style.zIndex = '2';
-        calendarBtn.style.marginRight = '12px'; // Add spacing between icons
-        calendarBtn.innerHTML = '<span style="font-size:1.7em;">📅</span>';
+        calendarBtn.style.marginRight = '8px'; // Add spacing between icons
+        calendarBtn.style.width = '28px';
+        calendarBtn.style.height = '28px';
+        calendarBtn.innerHTML = '<span style="font-size:1.25em;">📅</span>';
         calendarBtn.onclick = () => showScheduleModal(sensorId, sensors[sensorId]);
         card.appendChild(calendarBtn);
 
@@ -99,14 +101,16 @@ export function displayData(data) {
         timerBtn.type = 'button';
         timerBtn.title = 'View Timers (Clock)';
         timerBtn.style.position = 'absolute';
-        timerBtn.style.top = '12px';
-        timerBtn.style.right = '16px';
+        timerBtn.style.top = '8px';
+        timerBtn.style.right = '10px';
         timerBtn.style.background = 'none';
         timerBtn.style.border = 'none';
         timerBtn.style.cursor = 'pointer';
-        timerBtn.style.fontSize = '1.5rem';
+        timerBtn.style.fontSize = '1.1rem';
         timerBtn.style.zIndex = '2';
-        timerBtn.innerHTML = '<span style="font-size:1.7em;">⏲️</span>';
+        timerBtn.style.width = '28px';
+        timerBtn.style.height = '28px';
+        timerBtn.innerHTML = '<span style="font-size:1.25em;">⏲️</span>';
         timerBtn.onclick = () => showTimerModal(sensorId, sensors[sensorId]);
         card.appendChild(timerBtn);
 
