@@ -12,7 +12,10 @@ export async function fetchSensorData() {
 
     if (error) throw error;
 
-    document.getElementById('loading').style.display = 'none';
+    const loadingElem = document.getElementById('loading');
+    if (loadingElem) loadingElem.style.display = 'none';
+    const loadingMonitor = document.getElementById('loading-monitor');
+    if (loadingMonitor) loadingMonitor.style.display = 'none';
     document.getElementById('data-points').textContent = `Data Points: ${data.length}`;
     document.getElementById('last-update').textContent = `Last Update: ${new Date().toLocaleString()}`;
     
@@ -27,7 +30,9 @@ export async function fetchSensorData() {
 // Display sensor data in the UI (with modular card/modal/next event logic)
 export function displayData(data) {
   const container = document.getElementById("sensor-container");
-  container.innerHTML = "";
+  const monitorContainer = document.getElementById("sensor-container-monitor");
+  if (container) container.innerHTML = "";
+  if (monitorContainer) monitorContainer.innerHTML = "";
 
   // Group data by sensor and get latest readings
   const latestBySensor = {};
@@ -49,7 +54,9 @@ export function displayData(data) {
     return;
   }
 
-  function renderRoom(title, items) {
+  // Build room sections first, then append clones into both containers
+  const roomSections = [];
+  function buildRoomSection(title, items) {
     if (!items || items.length === 0) return;
     const roomSection = document.createElement('div');
     roomSection.className = 'room-section';
@@ -61,11 +68,137 @@ export function displayData(data) {
       cardsGrid.appendChild(card);
     });
     roomSection.appendChild(cardsGrid);
-    container.appendChild(roomSection);
+    roomSections.push(roomSection);
   }
 
-  renderRoom('🛡️ Strong Room', strongAvailable);
-  renderRoom('📦 Small Room', smallAvailable);
+  buildRoomSection('🛡️ Strong Room', strongAvailable);
+  buildRoomSection('📦 Small Room', smallAvailable);
+
+  // Append overview sections to main container only
+  if (container) {
+    roomSections.forEach(rs => container.appendChild(rs.cloneNode(true)));
+  }
+
+  // Build monitor-specific layout (do not change overview)
+  if (monitorContainer) {
+    // Helper to build a partial card showing only selected fields
+    function createPartialCard(sensorId, data, options = {}) {
+      const { showT1 = false, showRH1 = false, showT2 = false, showRH2 = false, showPM = false, showNC = false, includeControls = false, titleSuffix = '' } = options;
+      const card = document.createElement('div');
+      card.className = 'card';
+      const iconClass = 'ecs-icon';
+      const icon = '🌿';
+      const deviceType = 'Environment Control System' + (titleSuffix ? ` • ${titleSuffix}` : '');
+
+      let metricsHtml = '';
+      if (showT1) {
+        metricsHtml += `<div class="metric"><div class="metric-value">${data.t1 ?? '--'}°C</div><div class="metric-label">Temp 1</div></div>`;
+      }
+      if (showRH1) {
+        metricsHtml += `<div class="metric"><div class="metric-value">${data.rh1 ?? '--'}%</div><div class="metric-label">RH 1</div></div>`;
+      }
+      if (showT2) {
+        metricsHtml += `<div class="metric"><div class="metric-value">${data.t2 ?? '--'}°C</div><div class="metric-label">Temp 2</div></div>`;
+      }
+      if (showRH2) {
+        metricsHtml += `<div class="metric"><div class="metric-value">${data.rh2 ?? '--'}%</div><div class="metric-label">RH 2</div></div>`;
+      }
+      if (showPM) {
+        metricsHtml += `
+          <div class="metric"><div class="metric-value">${data.pm1 ?? '--'}</div><div class="metric-label">PM1.0</div></div>
+          <div class="metric"><div class="metric-value">${data.pm25 ?? '--'}</div><div class="metric-label">PM2.5</div></div>
+          <div class="metric"><div class="metric-value">${data.pm10 ?? '--'}</div><div class="metric-label">PM10</div></div>
+          <div class="metric"><div class="metric-value">${data.avg_particle_size ?? '--'} μm</div><div class="metric-label">Avg Particle Size</div></div>
+        `;
+      }
+      if (showNC) {
+        metricsHtml += `
+          <div class="metric"><div class="metric-value">${data.nc0_5 ?? '--'} /L</div><div class="metric-label">NC 0.5</div></div>
+          <div class="metric"><div class="metric-value">${data.nc1_0 ?? '--'} /L</div><div class="metric-label">NC 1.0</div></div>
+          <div class="metric"><div class="metric-value">${data.nc2_5 ?? '--'} /L</div><div class="metric-label">NC 2.5</div></div>
+          <div class="metric"><div class="metric-value">${data.nc10 ?? '--'} /L</div><div class="metric-label">NC 10</div></div>
+        `;
+      }
+
+      let controlsHtml = '';
+      if (includeControls) {
+        controlsHtml += `
+          <button class="control-btn ${data.relay1 ? 'on' : 'off'}" onclick="sendCommand('${sensorId}', 'relay1', ${!data.relay1})">Air Purifier: ${data.relay1 ? 'ON' : 'OFF'}</button>
+          <button class="control-btn ${data.relay2 ? 'on' : 'off'}" onclick="sendCommand('${sensorId}', 'relay2', ${!data.relay2})">Dehumidifier: ${data.relay2 ? 'ON' : 'OFF'}</button>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="card-title">
+          <div class="device-icon ${iconClass}">${icon}</div>
+          <div>
+            <div>${deviceType}</div>
+            <div style="font-size: 0.9rem; font-weight: normal; color: #666;">${sensorId.toUpperCase()}</div>
+          </div>
+        </div>
+        <div class="metrics-grid">${metricsHtml}</div>
+        <div class="controls">${controlsHtml}</div>
+        <div class="timestamp">Last Updated: ${new Date(data.timestamp).toLocaleString()}</div>
+      `;
+      return card;
+    }
+
+    // Build monitor layout according to user mapping
+    // Strong Room: ecs_1 main (t1,rh1 + PM/NC)
+    if (strongAvailable.length || smallAvailable.length) {
+      // Strong Room Main (ecs_1 main)
+      const strongMainSection = document.createElement('div');
+      strongMainSection.className = 'room-section';
+      strongMainSection.innerHTML = `<h2 class="room-title">🛡️ Strong Room</h2>`;
+      const strongGrid = document.createElement('div'); strongGrid.className = 'cards-grid';
+      const ecs1 = latestBySensor['ecs_1'];
+      if (ecs1) strongGrid.appendChild(createPartialCard('ecs_1', ecs1, { showT1: true, showRH1: true, showPM: true, showNC: true }));
+      strongMainSection.appendChild(strongGrid);
+      monitorContainer.appendChild(strongMainSection);
+
+      // Strong Room Control Room (ecs_1 t2/rh2 + controls)
+      const strongCtrl = document.createElement('div'); strongCtrl.className = 'room-section';
+      strongCtrl.innerHTML = `<h2 class="room-title">🛠️ Strong Room — Control Room</h2>`;
+      const strongCtrlGrid = document.createElement('div'); strongCtrlGrid.className = 'cards-grid';
+      if (ecs1) strongCtrlGrid.appendChild(createPartialCard('ecs_1', ecs1, { showT2: true, showRH2: true, includeControls: true, titleSuffix: 'Control' }));
+      strongCtrl.appendChild(strongCtrlGrid);
+      monitorContainer.appendChild(strongCtrl);
+
+      // Strong Room Far End (ecs_3 main)
+      const ecs3 = latestBySensor['ecs_3'];
+      const strongFar = document.createElement('div'); strongFar.className = 'room-section';
+      strongFar.innerHTML = `<h2 class="room-title">🛡️ Strong Room — Far End</h2>`;
+      const strongFarGrid = document.createElement('div'); strongFarGrid.className = 'cards-grid';
+      if (ecs3) strongFarGrid.appendChild(createPartialCard('ecs_3', ecs3, { showT1: true, showRH1: true, showPM: true, showNC: true, titleSuffix: 'Far End' }));
+      strongFar.appendChild(strongFarGrid);
+      monitorContainer.appendChild(strongFar);
+
+      // Small Room Main (ecs_2 main)
+      const smallMain = document.createElement('div'); smallMain.className = 'room-section';
+      smallMain.innerHTML = `<h2 class="room-title">📦 Small Room</h2>`;
+      const smallGrid = document.createElement('div'); smallGrid.className = 'cards-grid';
+      const ecs2 = latestBySensor['ecs_2'];
+      if (ecs2) smallGrid.appendChild(createPartialCard('ecs_2', ecs2, { showT1: true, showRH1: true, showPM: true, showNC: true }));
+      smallMain.appendChild(smallGrid);
+      monitorContainer.appendChild(smallMain);
+
+      // Small Room Control Room (ecs_2 t2/rh2 + controls)
+      const smallCtrl = document.createElement('div'); smallCtrl.className = 'room-section';
+      smallCtrl.innerHTML = `<h2 class="room-title">🔧 Small Room — Control Room</h2>`;
+      const smallCtrlGrid = document.createElement('div'); smallCtrlGrid.className = 'cards-grid';
+      if (ecs2) smallCtrlGrid.appendChild(createPartialCard('ecs_2', ecs2, { showT2: true, showRH2: true, includeControls: true, titleSuffix: 'Control' }));
+      smallCtrl.appendChild(smallCtrlGrid);
+      monitorContainer.appendChild(smallCtrl);
+
+      // Small Room Far End (ecs_3 t2/rh2)
+      const smallFar = document.createElement('div'); smallFar.className = 'room-section';
+      smallFar.innerHTML = `<h2 class="room-title">📦 Small Room — Far End</h2>`;
+      const smallFarGrid = document.createElement('div'); smallFarGrid.className = 'cards-grid';
+      if (ecs3) smallFarGrid.appendChild(createPartialCard('ecs_3', ecs3, { showT2: true, showRH2: true, titleSuffix: 'Far End' }));
+      smallFar.appendChild(smallFarGrid);
+      monitorContainer.appendChild(smallFar);
+    }
+  }
 }
 
 // Create a sensor card element for the dashboard

@@ -103,17 +103,22 @@ export function checkAlerts(data) {
     });
   });
 
-  // Display alerts
-  const alertsContainer = document.getElementById('alerts-container');
-  if (alertsContainer) {
-    alertsContainer.innerHTML = '';
+  // Display alerts in both overview and monitor (if present)
+  const containers = [];
+  const c1 = document.getElementById('alerts-container');
+  const c2 = document.getElementById('alerts-container-monitor');
+  if (c1) containers.push(c1);
+  if (c2) containers.push(c2);
+
+  containers.forEach(container => {
+    container.innerHTML = '';
     if (alerts.length > 0) {
       alerts.forEach(alert => {
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert-banner';
         alertDiv.textContent = `🚨 ${alert}`;
-        alertsContainer.appendChild(alertDiv);
+        container.appendChild(alertDiv);
       });
     }
-  }
+  });
 }
