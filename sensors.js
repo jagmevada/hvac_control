@@ -90,21 +90,18 @@ export function displayData(data) {
       const icon = '🌿';
       const deviceType = 'Environment Control System' + (titleSuffix ? ` • ${titleSuffix}` : '');
 
-      let metricsHtml = '';
-      if (showT1) {
-        metricsHtml += `<div class="metric"><div class="metric-value">${data.t1 ?? '--'}°C</div><div class="metric-label">Temp 1</div></div>`;
-      }
-      if (showRH1) {
-        metricsHtml += `<div class="metric"><div class="metric-value">${data.rh1 ?? '--'}%</div><div class="metric-label">RH 1</div></div>`;
-      }
-      if (showT2) {
-        metricsHtml += `<div class="metric"><div class="metric-value">${data.t2 ?? '--'}°C</div><div class="metric-label">Temp 2</div></div>`;
-      }
-      if (showRH2) {
-        metricsHtml += `<div class="metric"><div class="metric-value">${data.rh2 ?? '--'}%</div><div class="metric-label">RH 2</div></div>`;
-      }
+      // Top row: combined temperature & humidity for readability
+      let topRowHtml = '<div style="display:flex;gap:10px;justify-content:center;">';
+      if (showT1) topRowHtml += `<div class="metric" style="flex:1;"><div class="metric-value">${data.t1 ?? '--'}°C</div><div class="metric-label">Temp 1</div></div>`;
+      if (showRH1) topRowHtml += `<div class="metric" style="flex:1;"><div class="metric-value">${data.rh1 ?? '--'}%</div><div class="metric-label">RH 1</div></div>`;
+      if (showT2) topRowHtml += `<div class="metric" style="flex:1;"><div class="metric-value">${data.t2 ?? '--'}°C</div><div class="metric-label">Temp 2</div></div>`;
+      if (showRH2) topRowHtml += `<div class="metric" style="flex:1;"><div class="metric-value">${data.rh2 ?? '--'}%</div><div class="metric-label">RH 2</div></div>`;
+      topRowHtml += '</div>';
+
+      // Below row: air quality (PM) and NC metrics
+      let aqHtml = '';
       if (showPM) {
-        metricsHtml += `
+        aqHtml += `
           <div class="metric"><div class="metric-value">${data.pm1 ?? '--'}</div><div class="metric-label">PM1.0</div></div>
           <div class="metric"><div class="metric-value">${data.pm25 ?? '--'}</div><div class="metric-label">PM2.5</div></div>
           <div class="metric"><div class="metric-value">${data.pm10 ?? '--'}</div><div class="metric-label">PM10</div></div>
@@ -112,7 +109,7 @@ export function displayData(data) {
         `;
       }
       if (showNC) {
-        metricsHtml += `
+        aqHtml += `
           <div class="metric"><div class="metric-value">${data.nc0_5 ?? '--'} /L</div><div class="metric-label">NC 0.5</div></div>
           <div class="metric"><div class="metric-value">${data.nc1_0 ?? '--'} /L</div><div class="metric-label">NC 1.0</div></div>
           <div class="metric"><div class="metric-value">${data.nc2_5 ?? '--'} /L</div><div class="metric-label">NC 2.5</div></div>
@@ -136,7 +133,8 @@ export function displayData(data) {
             <div style="font-size: 0.9rem; font-weight: normal; color: #666;">${sensorId.toUpperCase()}</div>
           </div>
         </div>
-        <div class="metrics-grid">${metricsHtml}</div>
+        ${topRowHtml}
+        <div class="metrics-grid">${aqHtml}</div>
         <div class="controls">${controlsHtml}</div>
         <div class="timestamp">Last Updated: ${new Date(data.timestamp).toLocaleString()}</div>
       `;
