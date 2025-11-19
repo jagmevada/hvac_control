@@ -37,28 +37,35 @@ export function displayData(data) {
     }
   }
 
-  // We only display the three ECS devices (clean view)
-  const ecsOrder = ['ecs_1', 'ecs_2', 'ecs_3'];
-  const available = ecsOrder.map(id => ({ id, data: latestBySensor[id] })).filter(x => x.data);
+  // Group ECS devices into two room containers
+  const strongIds = ['ecs_1', 'ecs_3'];
+  const smallIds = ['ecs_2'];
 
-  if (available.length === 0) {
+  const strongAvailable = strongIds.map(id => ({ id, data: latestBySensor[id] })).filter(x => x.data);
+  const smallAvailable = smallIds.map(id => ({ id, data: latestBySensor[id] })).filter(x => x.data);
+
+  if (strongAvailable.length === 0 && smallAvailable.length === 0) {
     container.innerHTML = '<div class="loading">No ECS data available yet.</div>';
     return;
   }
 
-  const section = document.createElement('div');
-  section.className = 'room-section';
-  section.innerHTML = `<h2 class="room-title">🌿 ECS Devices</h2>`;
-  const cardsGrid = document.createElement('div');
-  cardsGrid.className = 'cards-grid';
+  function renderRoom(title, items) {
+    if (!items || items.length === 0) return;
+    const roomSection = document.createElement('div');
+    roomSection.className = 'room-section';
+    roomSection.innerHTML = `<h2 class="room-title">${title}</h2>`;
+    const cardsGrid = document.createElement('div');
+    cardsGrid.className = 'cards-grid';
+    items.forEach(s => {
+      const card = createSensorCard(s.id, s.data);
+      cardsGrid.appendChild(card);
+    });
+    roomSection.appendChild(cardsGrid);
+    container.appendChild(roomSection);
+  }
 
-  available.forEach(s => {
-    const card = createSensorCard(s.id, s.data);
-    cardsGrid.appendChild(card);
-  });
-
-  section.appendChild(cardsGrid);
-  container.appendChild(section);
+  renderRoom('🛡️ Strong Room', strongAvailable);
+  renderRoom('📦 Small Room', smallAvailable);
 }
 
 // Create a sensor card element for the dashboard
