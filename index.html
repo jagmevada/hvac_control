@@ -345,13 +345,13 @@ body {
       <div class="chart-title">📈 Historical Data Analysis</div>
       <div class="chart-controls">
         <select id="chart-room">
-          <option value="all">All Rooms</option>
-          <option value="r1">Room 1</option>
-          <option value="r2">Room 2</option>
+          <option value="all">All ECS</option>
+          <option value="ecs_1">ecs_1</option>
+          <option value="ecs_2">ecs_2</option>
+          <option value="ecs_3">ecs_3</option>
         </select>
         <select id="chart-metric">
-          <option value="ac_temp">AC Vent / Motor Temperature</option>
-          <option value="room_temp_rh" selected>Room Ambient Temp & Humidity</option>
+          <option value="room_temp_rh" selected>ECS Temp & Humidity (t1,t2,rh1,rh2)</option>
           <option value="pm">PM1.0 / PM2.5 / PM10</option>
           <option value="nc">NC0.5 / NC1.0 / NC2.5 / NC10</option>
           <option value="avg_particle_size">Average Particle Size</option>
@@ -388,8 +388,8 @@ body {
 
     // Create and globalize Supabase client
     const supabase = createClient(
-      "https://akxcjabakrvfaevdfwru.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFreGNqYWJha3J2ZmFldmRmd3J1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMjMwMjUsImV4cCI6MjA2NDY5OTAyNX0.kykki4uVVgkSVU4lH-wcuGRdyu2xJ1CQkYFhQq_u08w"
+      "https://nkkwdcsoijwcbgqrublg.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ra3dkY3NvaWp3Y2JncXJ1YmxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTg2MDgsImV4cCI6MjA3OTA3NDYwOH0.z3P1a_zOvjm1EGAggj6JS5u0Eo091mUcZ0wXyfEge-w"
     );
     window.supabase = supabase;
 

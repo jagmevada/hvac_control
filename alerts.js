@@ -58,40 +58,49 @@ export function checkAlerts(data) {
 
   // Check for alerts using the fetched settings
   Object.values(latest).forEach(d => {
-    const sensorType = d.sensor_id.startsWith('ac') ? 'ac' : 'ecs';
+    const sensorId = d.sensor_id || '';
+    if (!sensorId.startsWith('ecs_')) return; // only ECS devices in current setup
+
     // Check temperature thresholds (t1 and t2)
     ['t1', 't2'].forEach(tempParam => {
-      const settingKey = `${sensorType}_${tempParam}`;
+      const settingKey = `ecs_${tempParam}`;
       if (alertSettings[settingKey]) {
         const setting = alertSettings[settingKey];
         const value = d[tempParam];
-        if (value !== undefined) {
-          if (setting.min !== null && value < setting.min) {
-            alerts.push(`${sensorType.toUpperCase()} alert in ${d.sensor_id}: ${tempParam} below minimum (${value} < ${setting.min})`);
+        if (value !== undefined && value !== null) {
+          if (setting.min !== null && setting.min !== undefined && value < setting.min) {
+            alerts.push(`ECS alert in ${d.sensor_id}: ${tempParam} below minimum (${value} < ${setting.min})`);
           }
-          if (setting.max !== null && value > setting.max) {
-            alerts.push(`${sensorType.toUpperCase()} alert in ${d.sensor_id}: ${tempParam} above maximum (${value} > ${setting.max})`);
+          if (setting.max !== null && setting.max !== undefined && value > setting.max) {
+            alerts.push(`ECS alert in ${d.sensor_id}: ${tempParam} above maximum (${value} > ${setting.max})`);
           }
         }
       }
     });
-    // Check humidity for ECS only
-    if (sensorType === 'ecs' && d.rh !== undefined) {
-      const setting = alertSettings['ecs_rh'];
-      if (setting && setting.max !== null && d.rh > setting.max) {
-        alerts.push(`ECS alert in ${d.sensor_id}: Humidity above maximum (${d.rh}% > ${setting.max}%)`);
-      }
-    }
-    // Check air quality parameters for ECS only
-    if (sensorType === 'ecs') {
-      ['pm1', 'pm25', 'pm10', 'nc'].forEach(param => {
-        const setting = alertSettings[`ecs_${param}`];
-        if (setting && setting.max !== null && d[param] !== undefined && d[param] > setting.max) {
-          const unit = param === 'nc' ? 'particles/m³' : 'μg/m³';
-          alerts.push(`ECS alert in ${d.sensor_id}: ${param.toUpperCase()} above maximum (${d[param]} ${unit} > ${setting.max} ${unit})`);
+
+    // Check humidity channels rh1 and rh2
+    ['rh1', 'rh2'].forEach(rhParam => {
+      const settingKey = `ecs_${rhParam}`;
+      if (alertSettings[settingKey]) {
+        const setting = alertSettings[settingKey];
+        const value = d[rhParam];
+        if (value !== undefined && value !== null && setting.max !== null && setting.max !== undefined && value > setting.max) {
+          alerts.push(`ECS alert in ${d.sensor_id}: ${rhParam.toUpperCase()} above maximum (${value}% > ${setting.max}%)`);
         }
-      });
-    }
+      }
+    });
+
+    // Check air quality parameters for ECS
+    ['pm1', 'pm25', 'pm10', 'avg_particle_size', 'nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach(param => {
+      const setting = alertSettings[`ecs_${param}`];
+      const value = d[param];
+      if (setting && setting.max !== null && setting.max !== undefined && value !== undefined && value !== null) {
+        const unit = param.startsWith('nc') ? '/L' : (param.startsWith('avg') ? 'μm' : 'μg/m³');
+        if (value > setting.max) {
+          alerts.push(`ECS alert in ${d.sensor_id}: ${param.toUpperCase()} above maximum (${value} ${unit} > ${setting.max} ${unit})`);
+        }
+      }
+    });
   });
 
   // Display alerts

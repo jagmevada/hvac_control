@@ -31,10 +31,10 @@ export async function fetchChartData(room, metric, period) {
 
     if (error) throw error;
 
-    // Filter by room
+    // Filter by exact sensor id (room select now contains ecs ids or 'all')
     const filteredData = room === 'all'
       ? data
-      : data.filter(d => d.sensor_id.includes(`_${room}`));
+      : data.filter(d => d.sensor_id === room);
 
     const chartData = processChartData(filteredData, metric, period);
     updateChartDisplay(chartData, metric, period);
@@ -89,9 +89,12 @@ export function processChartData(data, metric, period) {
         t2: row.t2,
         t2_min: row.t2_min,
         t2_max: row.t2_max,
-        rh: row.rh,
-        rh_min: row.rh_min,
-        rh_max: row.rh_max,
+        rh1: row.rh1 ?? row.rh,
+        rh1_min: row.rh1_min ?? row.rh_min,
+        rh1_max: row.rh1_max ?? row.rh_max,
+        rh2: row.rh2 ?? null,
+        rh2_min: row.rh2_min ?? null,
+        rh2_max: row.rh2_max ?? null,
         pm1: row.pm1,
         pm1_min: row.pm1_min,
         pm1_max: row.pm1_max,
@@ -111,7 +114,8 @@ export function processChartData(data, metric, period) {
       processed[time][sensor] = {
         t1: row.t1,
         t2: row.t2,
-        rh: row.rh,
+        rh1: row.rh1 ?? row.rh,
+        rh2: row.rh2 ?? null,
         pm1: row.pm1,
         pm25: row.pm25,
         pm10: row.pm10,
@@ -141,7 +145,7 @@ export function updateChartDisplay(data, metric, period) {
   const sensors = new Set();
   Object.values(data).forEach(timeData => {
     Object.keys(timeData).forEach(sensor => {
-      if (room === 'all' || sensor.includes(`_${room}`)) {
+      if (room === 'all' || sensor === room) {
         sensors.add(sensor);
       }
     });
@@ -154,41 +158,30 @@ export function updateChartDisplay(data, metric, period) {
   const plottedAVG = new Set();
 
   sensors.forEach(sensor => {
-    const labelSuffix = sensor.toUpperCase().endsWith('_R1') ? '_R1' : '_R2';
     const color = colors[colorIndex % colors.length];
 
     // Common dataset options for all lines: very small point markers
     const commonOptions = { fill: false, tension: 0.3, pointRadius: 2 };
 
-    if (metric === 'ac_temp' && (sensor.startsWith('ac1_') || sensor.startsWith('ac2_'))) {
-      const acId = sensor.split('_')[0].toUpperCase(); // "AC1" or "AC2"
-      const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
-      const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-      // Vent temperature (left axis)
-      datasets.push({ label: `${acId} Vent${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', yAxisID: 'y', ...commonOptions });
-      // Motor temperature (right axis)
-      datasets.push({ label: `${acId} Motor${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
-      colorIndex++;
-      return;
-    }
-
     if (metric === 'room_temp_rh' && sensor.startsWith('ecs_')) {
       const t1 = labels.map(time => data[time][sensor]?.t1 ?? null);
       const t2 = labels.map(time => data[time][sensor]?.t2 ?? null);
-      const rh = labels.map(time => data[time][sensor]?.rh ?? null);
+      const rh1 = labels.map(time => data[time][sensor]?.rh1 ?? null);
+      const rh2 = labels.map(time => data[time][sensor]?.rh2 ?? null);
       // Temperature lines (left y-axis)
-      datasets.push({ label: `Room Temp 1${labelSuffix}`, data: t1, borderColor: color, backgroundColor: color + '20', yAxisID: 'y', ...commonOptions });
-      datasets.push({ label: `Room Temp 2${labelSuffix}`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', yAxisID: 'y', ...commonOptions });
-      // Humidity line (right y-axis)
-      datasets.push({ label: `Humidity${labelSuffix}`, data: rh, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
-      colorIndex++;
+      datasets.push({ label: `${sensor} Temp 1`, data: t1, borderColor: color, backgroundColor: color + '20', yAxisID: 'y', ...commonOptions });
+      datasets.push({ label: `${sensor} Temp 2`, data: t2, borderColor: colors[(colorIndex + 1) % colors.length], backgroundColor: colors[(colorIndex + 1) % colors.length] + '20', yAxisID: 'y', ...commonOptions });
+      // Humidity lines (right y-axis)
+      datasets.push({ label: `${sensor} RH 1`, data: rh1, borderColor: colors[(colorIndex + 2) % colors.length], backgroundColor: colors[(colorIndex + 2) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
+      datasets.push({ label: `${sensor} RH 2`, data: rh2, borderColor: colors[(colorIndex + 3) % colors.length], backgroundColor: colors[(colorIndex + 3) % colors.length] + '20', yAxisID: 'y1', ...commonOptions });
+      colorIndex += 2;
       return;
     }
 
     if (metric === 'pm' && sensor.startsWith('ecs_') && !plottedPM.has(sensor)) {
       ['pm1', 'pm25', 'pm10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
+        datasets.push({ label: `${sensor} ${key.toUpperCase()}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
       });
       plottedPM.add(sensor);
       colorIndex++;
@@ -198,7 +191,7 @@ export function updateChartDisplay(data, metric, period) {
     if (metric === 'nc' && sensor.startsWith('ecs_') && !plottedNC.has(sensor)) {
       ['nc0_5', 'nc1_0', 'nc2_5', 'nc10'].forEach((key, i) => {
         const colorX = colors[(colorIndex + i) % colors.length];
-        datasets.push({ label: `${key.toUpperCase()}${labelSuffix}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
+        datasets.push({ label: `${sensor} ${key.toUpperCase()}`, data: labels.map(t => data[t][sensor]?.[key] ?? null), borderColor: colorX, backgroundColor: colorX + '20', ...commonOptions });
       });
       plottedNC.add(sensor);
       colorIndex++;
@@ -207,7 +200,7 @@ export function updateChartDisplay(data, metric, period) {
 
     if (metric === 'avg_particle_size' && sensor.startsWith('ecs_') && !plottedAVG.has(sensor)) {
       const avg = labels.map(t => data[t][sensor]?.avg_particle_size ?? null);
-      datasets.push({ label: `Avg Particle Size${labelSuffix}`, data: avg, borderColor: color, backgroundColor: color + '20', ...commonOptions });
+      datasets.push({ label: `${sensor} Avg Particle Size`, data: avg, borderColor: color, backgroundColor: color + '20', ...commonOptions });
       plottedAVG.add(sensor);
       colorIndex++;
       return;
@@ -229,10 +222,7 @@ export function updateChartDisplay(data, metric, period) {
   // Helper to prettify metric
   function prettyMetric(m, room) {
     switch (m) {
-      case 'ac_temp':
-        if (room === 'r1') return 'Room 1 AC Vent & Motor Temp (°C)';
-        if (room === 'r2') return 'Room 2 AC Vent & Motor Temp (°C)';
-        return 'AC Vent & Motor Temp (°C)';
+      // removed AC-specific metric
       case 'room_temp_rh':
         if (room === 'r1') return 'Room 1 Temperature & Humidity (°C, %)';
         if (room === 'r2') return 'Room 2 Temperature & Humidity (°C, %)';
@@ -353,59 +343,7 @@ export function updateChartDisplay(data, metric, period) {
     };
   }
 
-  // For AC vent and motor temperature, set dual y-axes with custom ranges
-  if (metric === 'ac_temp') {
-    chartOptions.scales = {
-      y: {
-        type: 'linear',
-        position: 'left',
-        min: 0,
-        max: 40,
-        title: {
-          display: true,
-          text: 'Vent Temperature (°C)',
-          color: '#fff'
-        },
-        ticks: {
-          color: '#fff',
-          stepSize: 5
-        },
-        grid: {
-          color: 'rgba(255,255,255,0.12)'
-        }
-      },
-      y1: {
-        type: 'linear',
-        position: 'right',
-        min: 20,
-        max: 100,
-        title: {
-          display: true,
-          text: 'Motor Temperature (°C)',
-          color: '#fff'
-        },
-        ticks: {
-          color: '#fff',
-          stepSize: 10
-        },
-        grid: {
-          drawOnChartArea: false
-        }
-      },
-      x: {
-        title: {
-          display: false,
-          color: '#fff'
-        },
-        ticks: {
-          color: '#fff'
-        },
-        grid: {
-          color: 'rgba(255,255,255,0.12)'
-        }
-      }
-    };
-  }
+  // No AC-specific axes needed for ECS-only setup
 
   chart = new Chart(ctx, {
     type: 'line',

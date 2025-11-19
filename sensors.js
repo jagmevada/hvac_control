@@ -37,131 +37,62 @@ export function displayData(data) {
     }
   }
 
-  // Group by rooms and sort sensors by their IDs
-  const rooms = { r1: {}, r2: {} };
-  Object.entries(latestBySensor).forEach(([sensorId, data]) => {
-    const room = sensorId.includes('_r1') ? 'r1' : 'r2';
-    rooms[room][sensorId] = data;
-  });
+  // We only display the three ECS devices (clean view)
+  const ecsOrder = ['ecs_1', 'ecs_2', 'ecs_3'];
+  const available = ecsOrder.map(id => ({ id, data: latestBySensor[id] })).filter(x => x.data);
 
-  // Demo/mock schedule data for ac1_r1
-  const mockSchedules = [
-    { id: 1, type: 'timer', state: true, time: '2025-07-21T08:30:00', label: 'ON' },
-    { id: 2, type: 'schedule', state: false, time: '2025-07-21T18:00:00', label: 'OFF' }
-  ];
-
-  // Helper to get next event for a device
-  function getNextEvent(sensorId) {
-    if (sensorId !== 'ac1_r1') return null;
-    const now = new Date();
-    const next = mockSchedules.find(s => new Date(s.time) > now);
-    return next ? `Next: ${next.label} at ${new Date(next.time).toLocaleString()}` : 'No upcoming events';
+  if (available.length === 0) {
+    container.innerHTML = '<div class="loading">No ECS data available yet.</div>';
+    return;
   }
 
-  // Display each room
-  Object.entries(rooms).forEach(([roomId, sensors]) => {
-    if (Object.keys(sensors).length === 0) return;
+  const section = document.createElement('div');
+  section.className = 'room-section';
+  section.innerHTML = `<h2 class="room-title">🌿 ECS Devices</h2>`;
+  const cardsGrid = document.createElement('div');
+  cardsGrid.className = 'cards-grid';
 
-    const roomSection = document.createElement('div');
-    roomSection.className = 'room-section';
-    roomSection.innerHTML = `<h2 class="room-title">🏠 Clean Room ${roomId.toUpperCase()}</h2>`;
-    
-    const cardsGrid = document.createElement('div');
-    cardsGrid.className = 'cards-grid';
-
-    // Create cards in sorted order
-    Object.keys(sensors).sort().forEach(sensorId => {
-      const card = createSensorCard(sensorId, sensors[sensorId]);
-      // Add analog clock button at top-right and next event below last updated for ac1_r1
-      if (sensorId === 'ac1_r1') {
-        // Add 4 icon buttons (top-right)
-        // Only calendar and alarm clock icons, each with separate modal logic
-        card.style.position = 'relative';
-        // Calendar (Schedule)
-        const calendarBtn = document.createElement('button');
-        calendarBtn.type = 'button';
-        calendarBtn.title = 'View Schedules (Calendar)';
-        calendarBtn.style.position = 'absolute';
-        calendarBtn.style.top = '12px';
-        calendarBtn.style.right = '54px';
-        calendarBtn.style.background = 'none';
-        calendarBtn.style.border = 'none';
-        calendarBtn.style.cursor = 'pointer';
-        calendarBtn.style.fontSize = '1.5rem';
-        calendarBtn.style.zIndex = '2';
-        calendarBtn.style.marginRight = '12px'; // Add spacing between icons
-        calendarBtn.innerHTML = '<span style="font-size:1.7em;">📅</span>';
-        calendarBtn.onclick = () => showScheduleModal(sensorId, sensors[sensorId]);
-        card.appendChild(calendarBtn);
-
-        // Alarm clock (Timer)
-        const timerBtn = document.createElement('button');
-        timerBtn.type = 'button';
-        timerBtn.title = 'View Timers (Clock)';
-        timerBtn.style.position = 'absolute';
-        timerBtn.style.top = '12px';
-        timerBtn.style.right = '16px';
-        timerBtn.style.background = 'none';
-        timerBtn.style.border = 'none';
-        timerBtn.style.cursor = 'pointer';
-        timerBtn.style.fontSize = '1.5rem';
-        timerBtn.style.zIndex = '2';
-        timerBtn.innerHTML = '<span style="font-size:1.7em;">⏲️</span>';
-        timerBtn.onclick = () => showTimerModal(sensorId, sensors[sensorId]);
-        card.appendChild(timerBtn);
-
-        // Show next event below last updated
-        const tsDiv = card.querySelector('.timestamp');
-        const nextEvent = document.createElement('div');
-        nextEvent.style.fontSize = tsDiv.style.fontSize;
-        nextEvent.style.color = tsDiv.style.color;
-        nextEvent.style.marginTop = '2px';
-        nextEvent.textContent = getNextEvent(sensorId);
-        tsDiv.insertAdjacentElement('afterend', nextEvent);
-      }
-      cardsGrid.appendChild(card);
-    });
-
-    roomSection.appendChild(cardsGrid);
-    container.appendChild(roomSection);
+  available.forEach(s => {
+    const card = createSensorCard(s.id, s.data);
+    cardsGrid.appendChild(card);
   });
+
+  section.appendChild(cardsGrid);
+  container.appendChild(section);
 }
 
 // Create a sensor card element for the dashboard
 function createSensorCard(sensorId, d) {
   const isECS = sensorId.startsWith("ecs_");
-  const isAC1 = sensorId.startsWith("ac1_");
-  const isAC2 = sensorId.startsWith("ac2_");
-  
   const card = document.createElement("div");
   card.className = "card";
 
-  let deviceType = isECS ? "Environment Control System" : 
-                  isAC1 ? "Air Conditioner 1" : "Air Conditioner 2";
-  let icon = isECS ? "🌿" : "❄️";
-  let iconClass = isECS ? "ecs-icon" : "ac-icon";
+  const deviceType = isECS ? "Environment Control System" : sensorId;
+  const icon = isECS ? "🌿" : "⚙️";
+  const iconClass = isECS ? "ecs-icon" : "";
 
-  let metricsHtml = '';
-  
-  // Temperature readings with renamed labels
-  metricsHtml += `
+  // Build metrics: two SHT35 sensors (t1/rh1, t2/rh2) and SPS30 PM fields
+  let metricsHtml = `
     <div class="metric">
       <div class="metric-value">${d.t1 ?? '--'}°C</div>
-      <div class="metric-label">${isECS ? 'Ambient 1' : 'Cool Vent'}</div>
+      <div class="metric-label">Temp 1</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">${d.rh1 ?? '--'}%</div>
+      <div class="metric-label">RH 1</div>
     </div>
     <div class="metric">
       <div class="metric-value">${d.t2 ?? '--'}°C</div>
-      <div class="metric-label">${isECS ? 'Ambient 2' : 'Motor Heat'}</div>
+      <div class="metric-label">Temp 2</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">${d.rh2 ?? '--'}%</div>
+      <div class="metric-label">RH 2</div>
     </div>
   `;
 
-  // Additional metrics for ECS
   if (isECS) {
     metricsHtml += `
-      <div class="metric">
-        <div class="metric-value">${d.rh ?? '--'}%</div>
-        <div class="metric-label">Humidity</div>
-      </div>
       <div class="metric">
         <div class="metric-value">${d.pm1 ?? '--'}</div>
         <div class="metric-label">PM1.0</div>
@@ -180,46 +111,39 @@ function createSensorCard(sensorId, d) {
       </div>
       <div class="metric">
         <div class="metric-value">${d.nc0_5 ?? '--'} /L</div>
-        <div class="metric-label">Particles (0.5-1.0 μm)</div>
+        <div class="metric-label">NC 0.5</div>
       </div>
       <div class="metric">
         <div class="metric-value">${d.nc1_0 ?? '--'} /L</div>
-        <div class="metric-label">Particles (1.0-2.5 μm)</div>
+        <div class="metric-label">NC 1.0</div>
       </div>
       <div class="metric">
         <div class="metric-value">${d.nc2_5 ?? '--'} /L</div>
-        <div class="metric-label">Particles (2.5-10 μm)</div>
+        <div class="metric-label">NC 2.5</div>
       </div>
       <div class="metric">
         <div class="metric-value">${d.nc10 ?? '--'} /L</div>
-        <div class="metric-label">Particles (>10 μm)</div>
+        <div class="metric-label">NC 10</div>
       </div>
     `;
   }
 
-  // Control buttons
+  // Controls: only the three ECS devices are controllable now
   let controlsHtml = '';
-  const controllableIDs = [
-    "ac1_r1", "ac2_r1", "ecs_r1",
-    "ac1_r2", "ac2_r2", "ecs_r2"
-  ];
-
+  const controllableIDs = ['ecs_1', 'ecs_2', 'ecs_3'];
   if (controllableIDs.includes(sensorId)) {
     controlsHtml += `
       <button class="control-btn ${d.relay1 ? 'on' : 'off'}" 
               onclick="sendCommand('${sensorId}', 'relay1', ${!d.relay1})">
-        ${isECS ? 'Air Purifier' : 'AC Unit'}: ${d.relay1 ? 'ON' : 'OFF'}
+        Air Purifier: ${d.relay1 ? 'ON' : 'OFF'}
       </button>
     `;
-    
-    if (isECS) {
-      controlsHtml += `
-        <button class="control-btn ${d.relay2 ? 'on' : 'off'}" 
-                onclick="sendCommand('${sensorId}', 'relay2', ${!d.relay2})">
-          Dehumidifier: ${d.relay2 ? 'ON' : 'OFF'}
-        </button>
-      `;
-    }
+    controlsHtml += `
+      <button class="control-btn ${d.relay2 ? 'on' : 'off'}" 
+              onclick="sendCommand('${sensorId}', 'relay2', ${!d.relay2})">
+        Dehumidifier: ${d.relay2 ? 'ON' : 'OFF'}
+      </button>
+    `;
   }
 
   card.innerHTML = `
