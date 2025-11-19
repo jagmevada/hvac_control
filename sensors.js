@@ -143,60 +143,74 @@ export function displayData(data) {
       return card;
     }
 
-    // Build monitor layout according to user mapping
-    // Strong Room: ecs_1 main (t1,rh1 + PM/NC)
+    // Build monitor layout according to user mapping arranged in three rows
     if (strongAvailable.length || smallAvailable.length) {
-      // Strong Room Main (ecs_1 main)
+      const ecs1 = latestBySensor['ecs_1'];
+      const ecs2 = latestBySensor['ecs_2'];
+      const ecs3 = latestBySensor['ecs_3'];
+
+      // Create sections
       const strongMainSection = document.createElement('div');
       strongMainSection.className = 'room-section';
       strongMainSection.innerHTML = `<h2 class="room-title">🛡️ Strong Room</h2>`;
       const strongGrid = document.createElement('div'); strongGrid.className = 'cards-grid';
-      const ecs1 = latestBySensor['ecs_1'];
       if (ecs1) strongGrid.appendChild(createPartialCard('ecs_1', ecs1, { showT1: true, showRH1: true, showPM: true, showNC: true }));
       strongMainSection.appendChild(strongGrid);
-      monitorContainer.appendChild(strongMainSection);
 
-      // Strong Room Control Room (ecs_1 t2/rh2 + controls)
+      const smallMainSection = document.createElement('div');
+      smallMainSection.className = 'room-section';
+      smallMainSection.innerHTML = `<h2 class="room-title">📦 Small Room</h2>`;
+      const smallGrid = document.createElement('div'); smallGrid.className = 'cards-grid';
+      if (ecs2) smallGrid.appendChild(createPartialCard('ecs_2', ecs2, { showT1: true, showRH1: true, showPM: true, showNC: true }));
+      smallMainSection.appendChild(smallGrid);
+
       const strongCtrl = document.createElement('div'); strongCtrl.className = 'room-section';
       strongCtrl.innerHTML = `<h2 class="room-title">🛠️ Strong Room — Control Room</h2>`;
       const strongCtrlGrid = document.createElement('div'); strongCtrlGrid.className = 'cards-grid';
       if (ecs1) strongCtrlGrid.appendChild(createPartialCard('ecs_1', ecs1, { showT2: true, showRH2: true, includeControls: true, titleSuffix: 'Control' }));
       strongCtrl.appendChild(strongCtrlGrid);
-      monitorContainer.appendChild(strongCtrl);
 
-      // Strong Room Far End (ecs_3 main)
-      const ecs3 = latestBySensor['ecs_3'];
-      const strongFar = document.createElement('div'); strongFar.className = 'room-section';
-      strongFar.innerHTML = `<h2 class="room-title">🛡️ Strong Room — Far End</h2>`;
-      const strongFarGrid = document.createElement('div'); strongFarGrid.className = 'cards-grid';
-      if (ecs3) strongFarGrid.appendChild(createPartialCard('ecs_3', ecs3, { showT1: true, showRH1: true, showPM: true, showNC: true, titleSuffix: 'Far End' }));
-      strongFar.appendChild(strongFarGrid);
-      monitorContainer.appendChild(strongFar);
-
-      // Small Room Main (ecs_2 main)
-      const smallMain = document.createElement('div'); smallMain.className = 'room-section';
-      smallMain.innerHTML = `<h2 class="room-title">📦 Small Room</h2>`;
-      const smallGrid = document.createElement('div'); smallGrid.className = 'cards-grid';
-      const ecs2 = latestBySensor['ecs_2'];
-      if (ecs2) smallGrid.appendChild(createPartialCard('ecs_2', ecs2, { showT1: true, showRH1: true, showPM: true, showNC: true }));
-      smallMain.appendChild(smallGrid);
-      monitorContainer.appendChild(smallMain);
-
-      // Small Room Control Room (ecs_2 t2/rh2 + controls)
       const smallCtrl = document.createElement('div'); smallCtrl.className = 'room-section';
       smallCtrl.innerHTML = `<h2 class="room-title">🔧 Small Room — Control Room</h2>`;
       const smallCtrlGrid = document.createElement('div'); smallCtrlGrid.className = 'cards-grid';
       if (ecs2) smallCtrlGrid.appendChild(createPartialCard('ecs_2', ecs2, { showT2: true, showRH2: true, includeControls: true, titleSuffix: 'Control' }));
       smallCtrl.appendChild(smallCtrlGrid);
-      monitorContainer.appendChild(smallCtrl);
 
-      // Small Room Far End (ecs_3 t2/rh2)
+      const strongFar = document.createElement('div'); strongFar.className = 'room-section';
+      strongFar.innerHTML = `<h2 class="room-title">🛡️ Strong Room — Far End</h2>`;
+      const strongFarGrid = document.createElement('div'); strongFarGrid.className = 'cards-grid';
+      if (ecs3) strongFarGrid.appendChild(createPartialCard('ecs_3', ecs3, { showT1: true, showRH1: true, showPM: true, showNC: true, titleSuffix: 'Far End' }));
+      strongFar.appendChild(strongFarGrid);
+
       const smallFar = document.createElement('div'); smallFar.className = 'room-section';
       smallFar.innerHTML = `<h2 class="room-title">📦 Small Room — Far End</h2>`;
       const smallFarGrid = document.createElement('div'); smallFarGrid.className = 'cards-grid';
       if (ecs3) smallFarGrid.appendChild(createPartialCard('ecs_3', ecs3, { showT2: true, showRH2: true, titleSuffix: 'Far End' }));
       smallFar.appendChild(smallFarGrid);
-      monitorContainer.appendChild(smallFar);
+
+      // Helper to create a flex row with two columns
+      function appendRow(leftSection, rightSection) {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '15px';
+        row.style.alignItems = 'flex-start';
+        row.style.marginBottom = '18px';
+
+        const left = leftSection || document.createElement('div');
+        const right = rightSection || document.createElement('div');
+        left.style.flex = '1';
+        right.style.flex = '1';
+        row.appendChild(left);
+        row.appendChild(right);
+        monitorContainer.appendChild(row);
+      }
+
+      // Top: control rooms side-by-side
+      appendRow(strongCtrl, smallCtrl);
+      // Middle: main rooms side-by-side
+      appendRow(strongMainSection, smallMainSection);
+      // Bottom: far ends side-by-side
+      appendRow(strongFar, smallFar);
     }
   }
 }
