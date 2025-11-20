@@ -1,3 +1,3 @@
 # Iotview
 
-https://jagmevada.github.io/Iotview/
+https://jagmevada.github.io/hvac_control/
